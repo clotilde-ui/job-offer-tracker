@@ -17,13 +17,16 @@ export async function PATCH(
   const offer = await prisma.jobOffer.findFirst({ where: { id, userId } });
   if (!offer) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  const currentValues = (offer.customValues as Record<string, unknown>) ?? {};
+  const currentValues: Record<string, unknown> = JSON.parse(offer.customValues ?? "{}");
   const updated = await prisma.jobOffer.update({
     where: { id },
     data: {
-      customValues: { ...currentValues, [fieldName]: value },
+      customValues: JSON.stringify({ ...currentValues, [fieldName]: value }),
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    ...updated,
+    customValues: JSON.parse(updated.customValues ?? "{}"),
+  });
 }

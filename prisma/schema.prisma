@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 model User {
@@ -12,7 +12,7 @@ model User {
   email          String    @unique
   password       String
   name           String
-  role           Role      @default(USER)
+  role           String    @default("USER")
   webhookToken   String    @unique @default(cuid())
   lgmApiKey      String?
   lgmCampaignId  String?
@@ -67,7 +67,7 @@ model JobOffer {
 
   // Offre d'emploi
   title               String
-  description         String?   @db.Text
+  description         String?
   url                 String?
 
   // Entreprise
@@ -97,8 +97,8 @@ model JobOffer {
   contactedAt         DateTime?
   lgmSent             Boolean   @default(false)
 
-  // Champs personnalisés (JSON)
-  customValues        Json      @default("{}")
+  // Champs personnalisés (JSON stocké en texte pour SQLite)
+  customValues        String    @default("{}")
 
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -108,28 +108,15 @@ model JobOffer {
 }
 
 model CustomFieldDef {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   name      String
   label     String
-  type      FieldType @default(TEXT)
-  order     Int       @default(0)
-  createdAt DateTime  @default(now())
+  type      String   @default("TEXT")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, name])
-}
-
-enum Role {
-  ADMIN
-  USER
-}
-
-enum FieldType {
-  TEXT
-  NUMBER
-  BOOLEAN
-  DATE
-  SELECT
 }

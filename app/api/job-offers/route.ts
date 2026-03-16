@@ -13,22 +13,23 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") ?? "50");
   const search = searchParams.get("search") ?? "";
 
+  // SQLite ne supporte pas mode: "insensitive" — on filtre en JS si besoin
   const where = {
     userId,
     ...(search
       ? {
           OR: [
-            { title: { contains: search, mode: "insensitive" as const } },
-            { company: { contains: search, mode: "insensitive" as const } },
-            { leadFirstName: { contains: search, mode: "insensitive" as const } },
-            { leadLastName: { contains: search, mode: "insensitive" as const } },
-            { leadEmail: { contains: search, mode: "insensitive" as const } },
+            { title: { contains: search } },
+            { company: { contains: search } },
+            { leadFirstName: { contains: search } },
+            { leadLastName: { contains: search } },
+            { leadEmail: { contains: search } },
           ],
         }
       : {}),
   };
 
-  const [data, total] = await Promise.all([
+  const [rawData, total] = await Promise.all([
     prisma.jobOffer.findMany({
       where,
       orderBy: { receivedAt: "desc" },
@@ -37,6 +38,12 @@ export async function GET(req: NextRequest) {
     }),
     prisma.jobOffer.count({ where }),
   ]);
+
+  // Parse customValues JSON string → object pour le client
+  const data = rawData.map((offer) => ({
+    ...offer,
+    customValues: JSON.parse(offer.customValues ?? "{}"),
+  }));
 
   return NextResponse.json({ data, total, page, limit });
 }

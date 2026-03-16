@@ -3,7 +3,7 @@ import "./globals.css";
 import { SessionProvider } from "@/components/session-provider";
 
 export const metadata: Metadata = {
-  title: "Agrégateur Offres Emploi",
+  title: "Job Offer Tracker",
   description: "Suivi des offres d'emploi et leads Mantiks",
 };
 

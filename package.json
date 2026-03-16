@@ -1,5 +1,5 @@
 {
-  "name": "agregateur-offres-emploi",
+  "name": "job-offer-tracker",
   "version": "0.1.0",
   "private": true,
   "scripts": {

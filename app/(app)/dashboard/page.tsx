@@ -17,7 +17,7 @@ export default async function DashboardPage({ searchParams }: Props) {
   const { userId: targetParam } = await searchParams;
   const targetUserId = isAdmin && targetParam ? targetParam : selfId;
 
-  const [customFields, allUsers] = await Promise.all([
+  const [customFields, allUsers, targetUserData] = await Promise.all([
     prisma.customFieldDef.findMany({
       where: { userId: targetUserId },
       orderBy: { order: "asc" },
@@ -28,9 +28,18 @@ export default async function DashboardPage({ searchParams }: Props) {
           orderBy: { createdAt: "asc" },
         })
       : Promise.resolve(null),
+    prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { name: true, lgmAudiences: true },
+    }),
   ]);
 
   const targetUser = allUsers?.find((u) => u.id === targetUserId);
+
+  let lgmAudiences: string[] = [];
+  try {
+    lgmAudiences = JSON.parse(targetUserData?.lgmAudiences ?? "[]");
+  } catch { /* empty */ }
 
   return (
     <div>
@@ -49,7 +58,11 @@ export default async function DashboardPage({ searchParams }: Props) {
         )}
       </div>
 
-      <OffersTable customFields={customFields} targetUserId={isAdmin ? targetUserId : undefined} />
+      <OffersTable
+        customFields={customFields}
+        targetUserId={isAdmin ? targetUserId : undefined}
+        lgmAudiences={lgmAudiences}
+      />
     </div>
   );
 }

@@ -49,7 +49,8 @@ export function SettingsForm({ users }: { users: User[] }) {
   const [selectedUserId, setSelectedUserId] = useState(users[0]?.id ?? "");
   const [webhookToken, setWebhookToken] = useState("");
   const [lgmApiKey, setLgmApiKey] = useState("");
-  const [lgmCampaignId, setLgmCampaignId] = useState("");
+  const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
+  const [newAudience, setNewAudience] = useState("");
   const [aiProvider, setAiProvider] = useState<ProviderId>("claude");
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, string>>({
     claude: "",
@@ -73,7 +74,17 @@ export function SettingsForm({ users }: { users: User[] }) {
       .then((data) => {
         setWebhookToken(data.webhookToken ?? "");
         setLgmApiKey(data.lgmApiKey ?? "");
-        setLgmCampaignId(data.lgmCampaignId ?? "");
+
+        // Parse audiences — migrate old lgmCampaignId if lgmAudiences is empty
+        let audiences: string[] = [];
+        try {
+          audiences = JSON.parse(data.lgmAudiences ?? "[]");
+        } catch { /* empty */ }
+        if (audiences.length === 0 && data.lgmCampaignId) {
+          audiences = [data.lgmCampaignId];
+        }
+        setLgmAudiences(audiences);
+
         if (data.aiProvider) setAiProvider(data.aiProvider);
         setAiKeys({
           claude: data.claudeApiKey ?? "",
@@ -94,7 +105,7 @@ export function SettingsForm({ users }: { users: User[] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         lgmApiKey,
-        lgmCampaignId,
+        lgmAudiences,
         aiProvider,
         claudeApiKey: aiKeys.claude,
         geminiApiKey: aiKeys.gemini,
@@ -105,6 +116,17 @@ export function SettingsForm({ users }: { users: User[] }) {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+  }
+
+  function addAudience() {
+    const trimmed = newAudience.trim();
+    if (!trimmed || lgmAudiences.includes(trimmed)) return;
+    setLgmAudiences((prev) => [...prev, trimmed]);
+    setNewAudience("");
+  }
+
+  function removeAudience(name: string) {
+    setLgmAudiences((prev) => prev.filter((a) => a !== name));
   }
 
   function copyWebhook() {
@@ -126,14 +148,14 @@ export function SettingsForm({ users }: { users: User[] }) {
       </div>
 
       {/* User selector */}
-      <section className="bg-brand-pink/10 border border-brand-pink/30 rounded-xl p-4">
+      <section className="bg-brand-pink/10 border border-brand-pink/30 p-4">
         <label className="block text-sm font-medium text-brand-dark mb-2">
           Gérer les paramètres de
         </label>
         <select
           value={selectedUserId}
           onChange={(e) => setSelectedUserId(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink bg-white"
+          className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink bg-white"
         >
           {users.map((u) => (
             <option key={u.id} value={u.id}>
@@ -153,19 +175,19 @@ export function SettingsForm({ users }: { users: User[] }) {
       ) : (
         <>
           {/* Webhook */}
-          <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <section className="bg-white border border-gray-200 p-6 space-y-4">
             <h2 className="font-semibold text-brand-dark">Webhook Mantiks</h2>
             <p className="text-sm text-gray-600">
               Configurez cette URL dans le compte Mantiks de cet utilisateur pour recevoir les offres et leads.
             </p>
             <div className="flex gap-2">
-              <code className="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
+              <code className="flex-1 bg-gray-100 px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
                 {webhookUrl}
               </code>
               <button
                 type="button"
                 onClick={copyWebhook}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap text-brand-dark"
+                className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 whitespace-nowrap text-brand-dark"
               >
                 {copied ? "Copié !" : "Copier"}
               </button>
@@ -173,11 +195,13 @@ export function SettingsForm({ users }: { users: User[] }) {
           </section>
 
           {/* LGM */}
-          <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <section className="bg-white border border-gray-200 p-6 space-y-4">
             <h2 className="font-semibold text-brand-dark">La Growth Machine</h2>
             <p className="text-sm text-gray-600">
-              Quand l&apos;utilisateur coche <strong>CONTACTER</strong>, le lead est automatiquement ajouté à sa campagne LGM.
+              Quand l&apos;utilisateur choisit une audience dans la colonne <strong>CONTACTER</strong>,
+              le lead est automatiquement ajouté à cette audience LGM.
             </p>
+
             <div>
               <label className="block text-sm font-medium text-brand-dark mb-1">Clé API LGM</label>
               <input
@@ -185,25 +209,59 @@ export function SettingsForm({ users }: { users: User[] }) {
                 value={lgmApiKey}
                 onChange={(e) => setLgmApiKey(e.target.value)}
                 placeholder="Clé API La Growth Machine"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+                className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-brand-dark mb-1">
-                Nom d&apos;audience LGM
+              <label className="block text-sm font-medium text-brand-dark mb-2">
+                Audiences LGM
               </label>
-              <input
-                type="text"
-                value={lgmCampaignId}
-                onChange={(e) => setLgmCampaignId(e.target.value)}
-                placeholder="Nom exact de l'audience cible"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
-              />
+              <p className="text-xs text-gray-500 mb-3">
+                Ces audiences apparaîtront dans le dropdown de la colonne CONTACTER.
+              </p>
+
+              {/* Audience list */}
+              {lgmAudiences.length > 0 && (
+                <ul className="space-y-1.5 mb-3">
+                  {lgmAudiences.map((name) => (
+                    <li key={name} className="flex items-center justify-between bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
+                      <span className="text-brand-dark">{name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeAudience(name)}
+                        className="text-gray-400 hover:text-red-400 transition-colors text-xs ml-4"
+                      >
+                        Supprimer
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Add audience */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newAudience}
+                  onChange={(e) => setNewAudience(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAudience(); } }}
+                  placeholder="Nom exact de l'audience LGM"
+                  className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+                />
+                <button
+                  type="button"
+                  onClick={addAudience}
+                  className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 text-brand-dark whitespace-nowrap"
+                >
+                  + Ajouter
+                </button>
+              </div>
             </div>
           </section>
 
           {/* Intelligence Artificielle */}
-          <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
+          <section className="bg-white border border-gray-200 p-6 space-y-5">
             <div>
               <h2 className="font-semibold text-brand-dark">Intelligence Artificielle</h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -223,7 +281,7 @@ export function SettingsForm({ users }: { users: User[] }) {
                       key={p.id}
                       type="button"
                       onClick={() => setAiProvider(p.id)}
-                      className={`rounded-lg border-2 px-3 py-2.5 text-left transition-all ${
+                      className={`border-2 px-3 py-2.5 text-left transition-all ${
                         isActive
                           ? "border-brand-dark bg-brand-dark text-white"
                           : "border-gray-200 hover:border-gray-300 text-brand-dark"
@@ -244,12 +302,12 @@ export function SettingsForm({ users }: { users: User[] }) {
               {AI_PROVIDERS.map((p) => {
                 const isActive = aiProvider === p.id;
                 return (
-                  <div key={p.id} className={`rounded-lg border px-4 py-3 ${isActive ? "border-brand-dark/30 bg-brand-beige/40" : "border-gray-100"}`}>
+                  <div key={p.id} className={`border px-4 py-3 ${isActive ? "border-brand-dark/30 bg-brand-beige/40" : "border-gray-100"}`}>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className={`text-sm font-medium ${isActive ? "text-brand-dark" : "text-gray-500"}`}>
                         {p.name}
                         {isActive && (
-                          <span className="ml-2 text-xs bg-brand-pink text-brand-dark px-1.5 py-0.5 rounded-full font-medium">
+                          <span className="ml-2 text-xs bg-brand-pink text-brand-dark px-1.5 py-0.5 font-medium">
                             actif
                           </span>
                         )}
@@ -268,7 +326,7 @@ export function SettingsForm({ users }: { users: User[] }) {
                       value={aiKeys[p.id]}
                       onChange={(e) => setAiKeys((prev) => ({ ...prev, [p.id]: e.target.value }))}
                       placeholder={p.placeholder}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink bg-white"
+                      className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink bg-white"
                     />
                   </div>
                 );
@@ -279,7 +337,7 @@ export function SettingsForm({ users }: { users: User[] }) {
           <button
             type="submit"
             disabled={saving}
-            className="bg-brand-pink text-brand-dark rounded-lg px-6 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="bg-brand-pink text-brand-dark px-6 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {saving ? "Sauvegarde..." : saved ? "Sauvegardé ✓" : "Sauvegarder"}
           </button>

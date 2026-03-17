@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       webhookToken: true,
       lgmApiKey: true,
       lgmCampaignId: true,
+      lgmAudiences: true,
       aiProvider: true,
       claudeApiKey: true,
       geminiApiKey: true,
@@ -46,7 +47,7 @@ export async function PATCH(req: NextRequest) {
 
   const {
     lgmApiKey,
-    lgmCampaignId,
+    lgmAudiences,
     aiProvider,
     claudeApiKey,
     geminiApiKey,
@@ -58,7 +59,7 @@ export async function PATCH(req: NextRequest) {
     where: { id: targetUserId },
     data: {
       lgmApiKey,
-      lgmCampaignId,
+      lgmAudiences: Array.isArray(lgmAudiences) ? JSON.stringify(lgmAudiences) : lgmAudiences,
       aiProvider,
       claudeApiKey,
       geminiApiKey,
@@ -67,7 +68,7 @@ export async function PATCH(req: NextRequest) {
     },
     select: {
       lgmApiKey: true,
-      lgmCampaignId: true,
+      lgmAudiences: true,
       aiProvider: true,
       claudeApiKey: true,
       geminiApiKey: true,

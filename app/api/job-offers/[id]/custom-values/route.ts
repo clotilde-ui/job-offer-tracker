@@ -10,14 +10,24 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const userId = (session.user as { id: string }).id;
+  const userId = session.user.id;
   const { id } = await params;
   const { fieldName, value } = await req.json();
+
+  if (!fieldName || typeof fieldName !== "string" || fieldName.trim() === "") {
+    return NextResponse.json({ error: "fieldName invalide" }, { status: 400 });
+  }
 
   const offer = await prisma.jobOffer.findFirst({ where: { id, userId } });
   if (!offer) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  const currentValues: Record<string, unknown> = JSON.parse(offer.customValues ?? "{}");
+  let currentValues: Record<string, unknown> = {};
+  try {
+    currentValues = JSON.parse(offer.customValues ?? "{}");
+  } catch {
+    currentValues = {};
+  }
+
   const updated = await prisma.jobOffer.update({
     where: { id },
     data: {
@@ -25,8 +35,12 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({
-    ...updated,
-    customValues: JSON.parse(updated.customValues ?? "{}"),
-  });
+  let updatedCustomValues: Record<string, unknown> = {};
+  try {
+    updatedCustomValues = JSON.parse(updated.customValues ?? "{}");
+  } catch {
+    updatedCustomValues = {};
+  }
+
+  return NextResponse.json({ ...updated, customValues: updatedCustomValues });
 }

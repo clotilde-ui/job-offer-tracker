@@ -7,8 +7,12 @@ import bcrypt from "bcryptjs";
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
-  const role = (session.user as { role: string }).role;
+  const userId = session.user.id;
+  const role = session.user.role;
   if (role !== "ADMIN") return null;
+  // Revalidate role against DB to prevent stale session abuse
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user || user.role !== "ADMIN") return null;
   return session;
 }
 
@@ -34,7 +38,7 @@ export async function PATCH(
   const user = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, email: true, name: true, role: true, webhookToken: true, lgmApiKey: true, lgmCampaignId: true },
+    select: { id: true, email: true, name: true, role: true, webhookToken: true, lgmCampaignId: true },
   });
 
   return NextResponse.json(user);

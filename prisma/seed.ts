@@ -10,15 +10,24 @@ const adapter = new PrismaLibSql({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@example.com";
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    throw new Error(
+      "ADMIN_PASSWORD est requis pour exécuter le seed. Définissez cette variable d'environnement."
+    );
+  }
+
   const existing = await prisma.user.findUnique({
-    where: { email: "admin@example.com" },
+    where: { email: adminEmail },
   });
 
   if (!existing) {
-    const hashed = await bcrypt.hash("admin123", 12);
+    const hashed = await bcrypt.hash(adminPassword, 12);
     const admin = await prisma.user.create({
       data: {
-        email: "admin@example.com",
+        email: adminEmail,
         name: "Admin",
         password: hashed,
         role: "ADMIN",
@@ -26,10 +35,6 @@ async function main() {
     });
     console.log("Admin créé :", admin.email);
     console.log("Webhook token :", admin.webhookToken);
-    console.log("\nConnectez-vous avec :");
-    console.log("  Email    : admin@example.com");
-    console.log("  Password : admin123");
-    console.log("\n⚠️  Changez ce mot de passe après la première connexion !");
   } else {
     console.log("Admin déjà existant.");
   }

@@ -22,10 +22,16 @@ export function AdminUsersClient() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   async function fetchUsers() {
-    const res = await fetch("/api/admin/users");
-    const data = await res.json();
-    setUsers(data);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
+      const data = await res.json();
+      setUsers(data);
+    } catch {
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

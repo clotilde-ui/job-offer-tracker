@@ -7,8 +7,12 @@ import bcrypt from "bcryptjs";
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
-  const role = (session.user as { role: string }).role;
+  const userId = session.user.id;
+  const role = session.user.role;
   if (role !== "ADMIN") return null;
+  // Revalidate role against DB to prevent stale session abuse
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user || user.role !== "ADMIN") return null;
   return session;
 }
 
@@ -32,7 +36,13 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json(users);
+  // Mask lgmApiKey — the admin UI only needs to know if it's configured
+  const masked = users.map((user: (typeof users)[number]) => ({
+    ...user,
+    lgmApiKey: user.lgmApiKey ? "••••••••" : null,
+  }));
+
+  return NextResponse.json(masked);
 }
 
 export async function POST(req: NextRequest) {

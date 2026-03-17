@@ -56,16 +56,23 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
 
   const fetchOffers = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: String(LIMIT),
-      ...(search ? { search } : {}),
-    });
-    const res = await fetch(`/api/job-offers?${params}`);
-    const json = await res.json();
-    setOffers(json.data ?? []);
-    setTotal(json.total ?? 0);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(LIMIT),
+        ...(search ? { search } : {}),
+      });
+      const res = await fetch(`/api/job-offers?${params}`);
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
+      const json = await res.json();
+      setOffers(json.data ?? []);
+      setTotal(json.total ?? 0);
+    } catch {
+      setOffers([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
   }, [page, search]);
 
   useEffect(() => {

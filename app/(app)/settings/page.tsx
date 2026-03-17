@@ -13,13 +13,17 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetch("/api/settings")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         setWebhookToken(data.webhookToken ?? "");
         setLgmApiKey(data.lgmApiKey ?? "");
         setLgmCampaignId(data.lgmCampaignId ?? "");
-        setLoading(false);
-      });
+      })
+      .catch(() => {/* erreur silencieuse, loading reste false */})
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleSave(e: React.FormEvent) {

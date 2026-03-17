@@ -1,11 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Simple in-memory rate limiter: max 60 requests per minute per token
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 60;
+const RATE_WINDOW_MS = 60_000;
+
+function isRateLimited(token: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(token);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(token, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT) return true;
+  entry.count++;
+  return false;
+}
+
+function sanitizeUrl(value: unknown): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+  try {
+    const url = new URL(str);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return str;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeString(value: unknown, maxLength = 1000): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  return String(value).slice(0, maxLength);
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+
+  if (isRateLimited(token)) {
+    return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 });
+  }
 
   const user = await prisma.user.findUnique({
     where: { webhookToken: token },
@@ -30,26 +68,26 @@ export async function POST(
       return prisma.jobOffer.create({
         data: {
           userId: user.id,
-          title: String(offer.job_title ?? offer.title ?? "Sans titre"),
-          description: offer.description ? String(offer.description) : null,
-          url: offer.job_url ?? offer.url ? String(offer.job_url ?? offer.url) : null,
-          company: String(offer.company ?? offer.company_name ?? "Inconnu"),
-          linkedinPage: offer.company_linkedin ? String(offer.company_linkedin) : null,
-          website: offer.company_website ? String(offer.company_website) : null,
-          phone: offer.company_phone ? String(offer.company_phone) : null,
-          headquarters: offer.company_location ?? offer.headquarters ? String(offer.company_location ?? offer.headquarters) : null,
-          offerLocation: offer.location ?? offer.job_location ? String(offer.location ?? offer.job_location) : null,
-          source: offer.source ? String(offer.source) : null,
-          publishedAt: offer.published_at ?? offer.created_at
+          title: sanitizeString(offer.job_title ?? offer.title) ?? "Sans titre",
+          description: sanitizeString(offer.description, 10000),
+          url: sanitizeUrl(offer.job_url ?? offer.url),
+          company: sanitizeString(offer.company ?? offer.company_name) ?? "Inconnu",
+          linkedinPage: sanitizeUrl(offer.company_linkedin),
+          website: sanitizeUrl(offer.company_website),
+          phone: sanitizeString(offer.company_phone, 50),
+          headquarters: sanitizeString(offer.company_location ?? offer.headquarters, 500),
+          offerLocation: sanitizeString(offer.location ?? offer.job_location, 500),
+          source: sanitizeString(offer.source, 200),
+          publishedAt: (offer.published_at ?? offer.created_at)
             ? new Date(String(offer.published_at ?? offer.created_at))
             : null,
-          leadCivility: offer.lead_civility ?? offer.civility ? String(offer.lead_civility ?? offer.civility) : null,
-          leadFirstName: offer.lead_first_name ?? offer.first_name ? String(offer.lead_first_name ?? offer.first_name) : null,
-          leadLastName: offer.lead_last_name ?? offer.last_name ? String(offer.lead_last_name ?? offer.last_name) : null,
-          leadEmail: offer.lead_email ?? offer.email ? String(offer.lead_email ?? offer.email) : null,
-          leadJobTitle: offer.lead_job_title ?? offer.lead_position ? String(offer.lead_job_title ?? offer.lead_position) : null,
-          leadLinkedin: offer.lead_linkedin ? String(offer.lead_linkedin) : null,
-          leadPhone: offer.lead_phone ? String(offer.lead_phone) : null,
+          leadCivility: sanitizeString(offer.lead_civility ?? offer.civility, 20),
+          leadFirstName: sanitizeString(offer.lead_first_name ?? offer.first_name, 100),
+          leadLastName: sanitizeString(offer.lead_last_name ?? offer.last_name, 100),
+          leadEmail: sanitizeString(offer.lead_email ?? offer.email, 254),
+          leadJobTitle: sanitizeString(offer.lead_job_title ?? offer.lead_position, 200),
+          leadLinkedin: sanitizeUrl(offer.lead_linkedin),
+          leadPhone: sanitizeString(offer.lead_phone, 50),
         },
       });
     })

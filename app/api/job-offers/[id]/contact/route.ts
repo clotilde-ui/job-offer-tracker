@@ -30,7 +30,12 @@ export async function PATCH(
 
   // Si coché → envoyer vers LGM
   if (toContact && !offer.lgmSent) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const [user, customFields] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.customFieldDef.findMany({
+        where: { userId, lgmAttribute: { not: null } },
+      }),
+    ]);
 
     if (user?.lgmApiKey && user?.lgmCampaignId) {
       try {
@@ -44,6 +49,17 @@ export async function PATCH(
         if (offer.leadJobTitle) body.set("jobTitle", offer.leadJobTitle);
         if (offer.company) body.set("companyName", offer.company);
         if (offer.website) body.set("companyUrl", offer.website);
+
+        // Champs personnalisés mappés vers les custom attributes LGM
+        if (customFields.length > 0) {
+          const customValues = JSON.parse(offer.customValues || "{}");
+          for (const field of customFields) {
+            const val = customValues[field.name];
+            if (val != null && val !== "" && field.lgmAttribute) {
+              body.set(field.lgmAttribute, String(val));
+            }
+          }
+        }
 
         const res = await fetch(
           `https://apiv2.lagrowthmachine.com/flow/leads?apikey=${encodeURIComponent(user.lgmApiKey)}`,
@@ -62,7 +78,6 @@ export async function PATCH(
         }
       } catch (err) {
         console.error("Erreur LGM:", err);
-        // On ne bloque pas la mise à jour même si LGM échoue
       }
     }
   }

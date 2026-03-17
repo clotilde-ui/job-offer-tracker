@@ -10,6 +10,8 @@ interface CustomField {
   label: string;
   type: string;
   formula?: string | null;
+  lgmAttribute?: string | null;
+  autoFill?: boolean;
 }
 
 interface JobOffer {

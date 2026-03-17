@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { callAIProvider } from "@/lib/ai-generate";
 
 // Simple in-memory rate limiter: max 60 requests per minute per token
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -47,6 +48,14 @@ export async function POST(
 
   const user = await prisma.user.findUnique({
     where: { webhookToken: token },
+    select: {
+      id: true,
+      aiProvider: true,
+      claudeApiKey: true,
+      geminiApiKey: true,
+      groqApiKey: true,
+      openaiApiKey: true,
+    },
   });
 
   if (!user) {
@@ -97,7 +106,36 @@ export async function POST(
     })
   );
 
-  return NextResponse.json({ received: created.length }, { status: 201 });
+  // Répondre immédiatement — auto-fill IA en arrière-plan
+  const response = NextResponse.json({ received: created.length }, { status: 201 });
+
+  // Auto-fill asynchrone : ne bloque pas la réponse
+  const autoFillFields = await prisma.customFieldDef.findMany({
+    where: { userId: user.id, type: "AI", autoFill: true },
+  });
+
+  if (autoFillFields.length > 0) {
+    Promise.allSettled(
+      created.flatMap((offer) =>
+        autoFillFields.map(async (field) => {
+          if (!field.formula) return;
+          try {
+            const value = await callAIProvider(user, field.formula, offer);
+            const customValues = JSON.parse(offer.customValues || "{}");
+            customValues[field.name] = value;
+            await prisma.jobOffer.update({
+              where: { id: offer.id },
+              data: { customValues: JSON.stringify(customValues) },
+            });
+          } catch (e) {
+            console.error(`Auto-fill IA [${field.name}] offre ${offer.id}:`, e);
+          }
+        })
+      )
+    ).catch(() => {});
+  }
+
+  return response;
 }
 
 // Endpoint GET pour vérifier que le webhook est actif

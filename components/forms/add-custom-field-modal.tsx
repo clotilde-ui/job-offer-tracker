@@ -8,6 +8,8 @@ interface CustomField {
   label: string;
   type: string;
   formula?: string | null;
+  lgmAttribute?: string | null;
+  autoFill?: boolean;
 }
 
 interface AddCustomFieldModalProps {
@@ -21,18 +23,40 @@ const FIELD_TYPES = [
   { value: "BOOLEAN", label: "Case à cocher" },
   { value: "DATE", label: "Date" },
   { value: "FORMULA", label: "Formule" },
-  { value: "AI", label: "IA (généré par Claude)" },
+  { value: "AI", label: "IA (généré par Claude/Gemini/Groq/OpenAI)" },
 ];
 
 const FORMULA_VARS = [
-  "{title}", "{company}", "{offerLocation}", "{source}",
-  "{leadFirstName}", "{leadLastName}", "{leadEmail}", "{leadJobTitle}", "{description}",
+  { key: "{title}", label: "Titre de l'offre" },
+  { key: "{company}", label: "Entreprise" },
+  { key: "{offerLocation}", label: "Localisation" },
+  { key: "{source}", label: "Source" },
+  { key: "{leadFirstName}", label: "Prénom lead" },
+  { key: "{leadLastName}", label: "Nom lead" },
+  { key: "{leadEmail}", label: "Email lead" },
+  { key: "{leadJobTitle}", label: "Poste lead" },
+  { key: "{description}", label: "Description" },
+];
+
+const AI_VARS = FORMULA_VARS.map((v) => ({
+  key: `{{${v.key.slice(1, -1)}}}`,
+  label: v.label,
+}));
+
+const LGM_OPTIONS = [
+  { value: "", label: "Ne pas envoyer à LGM" },
+  ...Array.from({ length: 10 }, (_, i) => ({
+    value: `customAttribute${i + 1}`,
+    label: `customAttribute${i + 1}`,
+  })),
 ];
 
 export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalProps) {
   const [label, setLabel] = useState("");
   const [type, setType] = useState("TEXT");
   const [formula, setFormula] = useState("");
+  const [lgmAttribute, setLgmAttribute] = useState("");
+  const [autoFill, setAutoFill] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,7 +68,13 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
     const res = await fetch("/api/custom-fields", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label, type, formula: formula || undefined }),
+      body: JSON.stringify({
+        label,
+        type,
+        formula: formula || undefined,
+        lgmAttribute: lgmAttribute || undefined,
+        autoFill: autoFill,
+      }),
     });
 
     if (res.ok) {
@@ -57,12 +87,13 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
     setLoading(false);
   }
 
-  const isFormulaType = type === "FORMULA";
-  const isAIType = type === "AI";
+  const isFormula = type === "FORMULA";
+  const isAI = type === "AI";
+  const supportsLgm = type !== "FORMULA";
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4 text-brand-dark">Ajouter un champ personnalisé</h2>
 
         {error && (
@@ -72,6 +103,7 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Label */}
           <div>
             <label className="block text-sm font-medium text-brand-dark mb-1">
               Nom du champ
@@ -81,16 +113,17 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               required
-              placeholder="Ex: Budget, Priorité..."
+              placeholder="Ex: Score, Secteur, Titre nettoyé..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
 
+          {/* Type */}
           <div>
             <label className="block text-sm font-medium text-brand-dark mb-1">Type</label>
             <select
               value={type}
-              onChange={(e) => { setType(e.target.value); setFormula(""); }}
+              onChange={(e) => { setType(e.target.value); setFormula(""); setAutoFill(false); }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             >
               {FIELD_TYPES.map((t) => (
@@ -99,7 +132,8 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
             </select>
           </div>
 
-          {isFormulaType && (
+          {/* Formule */}
+          {isFormula && (
             <div>
               <label className="block text-sm font-medium text-brand-dark mb-1">Formule</label>
               <input
@@ -110,25 +144,12 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
                 placeholder="Ex: {title} — {company}"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
               />
-              <div className="mt-2">
-                <p className="text-xs text-gray-500 mb-1">Variables disponibles :</p>
-                <div className="flex flex-wrap gap-1">
-                  {FORMULA_VARS.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setFormula((f) => f + v)}
-                      className="text-xs bg-gray-100 hover:bg-brand-pink/20 text-brand-dark rounded px-1.5 py-0.5 font-mono transition-colors"
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <VarPicker vars={FORMULA_VARS} onInsert={(v) => setFormula((f) => f + v)} />
             </div>
           )}
 
-          {isAIType && (
+          {/* Prompt IA */}
+          {isAI && (
             <div>
               <label className="block text-sm font-medium text-brand-dark mb-1">Prompt IA</label>
               <textarea
@@ -136,12 +157,55 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
                 onChange={(e) => setFormula(e.target.value)}
                 required
                 rows={3}
-                placeholder="Ex: Ce poste est-il dans le secteur tech ? Réponds par oui ou non."
+                placeholder="Ex: Nettoie ce titre d'offre pour un message de prospection : {{title}}"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink resize-none"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Claude analysera chaque offre et remplira ce champ. Cliquez sur ⚡ dans le tableau pour générer.
+              <VarPicker vars={AI_VARS} onInsert={(v) => setFormula((f) => f + v)} />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Utilisez <code className="bg-gray-100 px-1 rounded">{"{{field}}"}</code> pour injecter des données de l&apos;offre dans le prompt.
               </p>
+            </div>
+          )}
+
+          {/* Auto-fill (IA seulement) */}
+          {isAI && (
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={autoFill}
+                onChange={(e) => setAutoFill(e.target.checked)}
+                className="mt-0.5 w-4 h-4 cursor-pointer shrink-0"
+                style={{ accentColor: "#FFBEFA" }}
+              />
+              <div>
+                <span className="text-sm font-medium text-brand-dark">Remplissage automatique</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Ce champ sera généré par l&apos;IA à chaque nouvelle offre reçue via webhook, en arrière-plan.
+                </p>
+              </div>
+            </label>
+          )}
+
+          {/* LGM custom attribute */}
+          {supportsLgm && (
+            <div>
+              <label className="block text-sm font-medium text-brand-dark mb-1">
+                Envoyer vers LGM
+              </label>
+              <select
+                value={lgmAttribute}
+                onChange={(e) => setLgmAttribute(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+              >
+                {LGM_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              {lgmAttribute && (
+                <p className="text-xs text-gray-400 mt-1">
+                  La valeur sera envoyée comme <code className="bg-gray-100 px-1 rounded">{lgmAttribute}</code> lors du clic sur CONTACTER.
+                </p>
+              )}
             </div>
           )}
 
@@ -162,6 +226,33 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function VarPicker({
+  vars,
+  onInsert,
+}: {
+  vars: { key: string; label: string }[];
+  onInsert: (v: string) => void;
+}) {
+  return (
+    <div className="mt-2">
+      <p className="text-xs text-gray-500 mb-1">Insérer une variable :</p>
+      <div className="flex flex-wrap gap-1">
+        {vars.map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => onInsert(v.key)}
+            title={v.label}
+            className="text-xs bg-gray-100 hover:bg-brand-pink/20 text-brand-dark rounded px-1.5 py-0.5 font-mono transition-colors"
+          >
+            {v.key}
+          </button>
+        ))}
       </div>
     </div>
   );

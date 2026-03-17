@@ -99,13 +99,13 @@ export default function SettingsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              ID de campagne LGM
+              Nom d&apos;audience LGM
             </label>
             <input
               type="text"
               value={lgmCampaignId}
               onChange={(e) => setLgmCampaignId(e.target.value)}
-              placeholder="ID de la campagne cible"
+              placeholder="Nom exact de l'audience cible"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

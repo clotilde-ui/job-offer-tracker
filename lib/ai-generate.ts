@@ -11,6 +11,7 @@ export interface OfferForAI {
   leadLastName: string | null;
   leadEmail: string | null;
   leadJobTitle: string | null;
+  customValues?: string | Record<string, unknown>;
 }
 
 export interface UserAIConfig {
@@ -36,6 +37,18 @@ function substituteVars(prompt: string, offer: OfferForAI): string {
     leadEmail: offer.leadEmail ?? "",
     leadJobTitle: offer.leadJobTitle ?? "",
   };
+
+  // Inject custom field values
+  if (offer.customValues) {
+    const customParsed: Record<string, unknown> =
+      typeof offer.customValues === "string"
+        ? JSON.parse(offer.customValues || "{}")
+        : offer.customValues;
+    for (const [k, v] of Object.entries(customParsed)) {
+      if (v != null) vars[k] = String(v);
+    }
+  }
+
   return prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
 }
 

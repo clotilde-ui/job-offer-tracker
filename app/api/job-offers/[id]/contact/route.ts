@@ -14,7 +14,7 @@ export async function PATCH(
 
   const userId = session.user.id;
   const { id } = await params;
-  const { status }: { status: ContactStatus } = await req.json();
+  const { status, audience }: { status: ContactStatus; audience?: string } = await req.json();
 
   if (!["qualify", "contact", "doNotContact"].includes(status)) {
     return NextResponse.json({ error: "Statut invalide" }, { status: 400 });
@@ -23,10 +23,11 @@ export async function PATCH(
   const offer = await prisma.jobOffer.findFirst({ where: { id, userId } });
   if (!offer) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  const data = {
+  const data: Record<string, unknown> = {
     toContact: status === "contact",
     doNotContact: status === "doNotContact",
     contactedAt: status === "contact" ? new Date() : null,
+    lgmAudience: status === "contact" ? (audience ?? null) : null,
   };
 
   const updated = await prisma.jobOffer.update({ where: { id }, data });
@@ -40,10 +41,20 @@ export async function PATCH(
       }),
     ]);
 
-    if (user?.lgmApiKey && user?.lgmCampaignId) {
+    // Resolve target audience: explicit > lgmAudiences[0] > legacy lgmCampaignId
+    let targetAudience = audience ?? null;
+    if (!targetAudience && user?.lgmAudiences) {
+      try {
+        const audiences: string[] = JSON.parse(user.lgmAudiences);
+        if (audiences.length > 0) targetAudience = audiences[0];
+      } catch { /* empty */ }
+    }
+    if (!targetAudience) targetAudience = user?.lgmCampaignId ?? null;
+
+    if (user?.lgmApiKey && targetAudience) {
       try {
         const body = new URLSearchParams();
-        body.set("audience", user.lgmCampaignId);
+        body.set("audience", targetAudience);
         if (offer.leadFirstName) body.set("firstname", offer.leadFirstName);
         if (offer.leadLastName) body.set("lastname", offer.leadLastName);
         if (offer.leadEmail) body.set("proEmail", offer.leadEmail);

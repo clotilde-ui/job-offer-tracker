@@ -38,12 +38,21 @@ interface JobOffer {
   toContact: boolean;
   doNotContact: boolean;
   lgmSent: boolean;
+  lgmAudience: string | null;
   customValues: Record<string, unknown>;
+}
+
+interface Stats {
+  all: number;
+  toContact: number;
+  doNotContact: number;
+  qualify: number;
 }
 
 interface OffersTableProps {
   customFields: CustomField[];
   targetUserId?: string;
+  lgmAudiences: string[];
 }
 
 const FIXED_COLUMNS = [
@@ -55,7 +64,7 @@ const FIXED_COLUMNS = [
   { key: "leadName", label: "Lead", defaultWidth: 150 },
   { key: "leadEmail", label: "Email lead", defaultWidth: 180 },
   { key: "leadJobTitle", label: "Métier lead", defaultWidth: 140 },
-  { key: "toContact", label: "CONTACTER", defaultWidth: 100 },
+  { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
 ];
 
 const CUSTOM_FIELD_DEFAULT_WIDTH = 130;
@@ -71,9 +80,10 @@ function evalFormula(formula: string, offer: JobOffer): string {
   });
 }
 
-export function OffersTable({ customFields: initialCustomFields, targetUserId }: OffersTableProps) {
+export function OffersTable({ customFields: initialCustomFields, targetUserId, lgmAudiences }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -142,6 +152,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
       const json = await res.json();
       setOffers(json.data ?? []);
       setTotal(json.total ?? 0);
+      setStats(json.stats ?? null);
     } catch {
       setOffers([]);
       setTotal(0);
@@ -154,11 +165,11 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
     fetchOffers();
   }, [fetchOffers]);
 
-  async function setContactStatus(id: string, status: "qualify" | "contact" | "doNotContact") {
+  async function setContactStatus(id: string, status: "qualify" | "contact" | "doNotContact", audience?: string) {
     const res = await fetch(`/api/job-offers/${id}/contact`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, audience }),
     });
     if (res.ok) {
       setOffers((prev) =>
@@ -168,10 +179,13 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
                 ...o,
                 toContact: status === "contact",
                 doNotContact: status === "doNotContact",
+                lgmAudience: status === "contact" ? (audience ?? null) : null,
               }
             : o
         )
       );
+      // Refresh stats
+      fetchOffers();
     }
   }
 
@@ -229,6 +243,18 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
       setOffers((prev) => prev.filter((o) => o.id !== id));
       setTotal((t) => t - 1);
     }
+  }
+
+  function handleExportCsv() {
+    const params = new URLSearchParams({
+      format: "csv",
+      sortBy,
+      sortDir,
+      ...(search ? { search } : {}),
+      ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
+      ...(targetUserId ? { targetUserId } : {}),
+    });
+    window.open(`/api/job-offers?${params}`, "_blank");
   }
 
   function handleSort(col: string) {
@@ -293,6 +319,16 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
 
   return (
     <div className="space-y-4">
+      {/* Stats bar */}
+      {stats && (
+        <div className="flex items-center gap-4 flex-wrap">
+          <StatBadge label="Total" value={stats.all} color="gray" />
+          <StatBadge label="À qualifier" value={stats.qualify} color="gray" />
+          <StatBadge label="Contacté" value={stats.toContact} color="green" />
+          <StatBadge label="Ne pas contacter" value={stats.doNotContact} color="red" />
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <form onSubmit={handleSearch} className="flex gap-2">
@@ -301,11 +337,11 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Rechercher offre, entreprise, lead..."
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 text-brand-dark bg-white focus:outline-none focus:ring-2 focus:ring-brand-pink"
+            className="border border-gray-300 px-3 py-2 text-sm w-72 text-brand-dark bg-white focus:outline-none focus:ring-2 focus:ring-brand-pink"
           />
           <button
             type="submit"
-            className="bg-brand-pink text-brand-dark px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            className="bg-brand-pink text-brand-dark px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Rechercher
           </button>
@@ -321,7 +357,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
         </form>
 
         {/* Filter: multi-select statuses */}
-        <div className="flex items-center gap-3 border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm text-brand-dark">
+        <div className="flex items-center gap-3 border border-gray-300 px-3 py-2 bg-white text-sm text-brand-dark">
           <span className="text-gray-500 shrink-0">Filtre :</span>
           {[
             { key: "qualify", label: "À qualifier" },
@@ -357,25 +393,25 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
           <div className="relative" ref={columnMenuRef}>
             <button
               onClick={() => setShowColumnMenu((v) => !v)}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1.5 transition-colors"
+              className="text-sm border border-gray-300 px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1.5 transition-colors"
             >
               <span>⊞</span> Colonnes
               {hiddenColumns.size > 0 && (
-                <span className="bg-brand-pink text-brand-dark text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                <span className="bg-brand-pink text-brand-dark text-xs w-4 h-4 flex items-center justify-center font-medium">
                   {hiddenColumns.size}
                 </span>
               )}
             </button>
 
             {showColumnMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-20 min-w-[210px]">
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 shadow-lg p-3 z-20 min-w-[210px]">
                 <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
                   Afficher / masquer
                 </p>
                 {allColumnsForMenu.map((col) => (
                   <label
                     key={col.key}
-                    className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
+                    className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 px-1"
                   >
                     <input
                       type="checkbox"
@@ -401,15 +437,23 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
 
           <button
             onClick={() => setShowAddField(true)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
+            className="text-sm border border-gray-300 px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
           >
             + Champ personnalisé
+          </button>
+
+          <button
+            onClick={handleExportCsv}
+            className="text-sm border border-gray-300 px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
+            title="Exporter le tableau en CSV"
+          >
+            ↓ Export CSV
           </button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto border border-gray-200 bg-white shadow-sm">
         <table
           className="text-sm border-collapse"
           style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
@@ -505,7 +549,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
                     <td className="px-1 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => deleteOffer(offer.id)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs w-5 h-5 flex items-center justify-center rounded"
+                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs w-5 h-5 flex items-center justify-center"
                         title="Supprimer cette offre"
                       >
                         ✕
@@ -634,12 +678,13 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
                       </td>
                     )}
 
-                    {/* toContact */}
+                    {/* toContact — audience dropdown */}
                     {!hiddenColumns.has("toContact") && (
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <ContactStatusCell
+                        <AudienceDropdownCell
                           offer={offer}
-                          onSet={(status) => setContactStatus(offer.id, status)}
+                          lgmAudiences={lgmAudiences}
+                          onSet={setContactStatus}
                         />
                       </td>
                     )}
@@ -695,7 +740,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-white text-brand-dark transition-colors"
+            className="px-3 py-1.5 text-sm border border-gray-300 disabled:opacity-40 hover:bg-white text-brand-dark transition-colors"
           >
             ← Précédent
           </button>
@@ -705,7 +750,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-white text-brand-dark transition-colors"
+            className="px-3 py-1.5 text-sm border border-gray-300 disabled:opacity-40 hover:bg-white text-brand-dark transition-colors"
           >
             Suivant →
           </button>
@@ -726,41 +771,83 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
   );
 }
 
-function ContactStatusCell({
+function StatBadge({ label, value, color }: { label: string; value: number; color: "gray" | "green" | "red" }) {
+  const colorClass =
+    color === "green"
+      ? "bg-[#26B743]/10 text-[#26B743] border-[#26B743]/20"
+      : color === "red"
+      ? "bg-red-50 text-red-500 border-red-100"
+      : "bg-gray-100 text-gray-600 border-gray-200";
+  return (
+    <div className={`flex items-center gap-2 border px-3 py-1.5 text-sm ${colorClass}`}>
+      <span className="font-semibold text-base">{value}</span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function AudienceDropdownCell({
   offer,
+  lgmAudiences,
   onSet,
 }: {
   offer: JobOffer;
-  onSet: (status: "qualify" | "contact" | "doNotContact") => void;
+  lgmAudiences: string[];
+  onSet: (id: string, status: "qualify" | "contact" | "doNotContact", audience?: string) => void;
 }) {
-  const current = offer.toContact ? "contact" : offer.doNotContact ? "doNotContact" : "qualify";
+  const currentValue = offer.doNotContact
+    ? "doNotContact"
+    : offer.toContact && offer.lgmAudience
+    ? offer.lgmAudience
+    : offer.toContact
+    ? "__contact__"
+    : "qualify";
 
-  const options: { key: "qualify" | "contact" | "doNotContact"; label: string; activeClass: string }[] = [
-    { key: "qualify", label: "?", activeClass: "bg-gray-200 text-gray-700" },
-    { key: "contact", label: "✓", activeClass: "bg-brand-green text-white" },
-    { key: "doNotContact", label: "✗", activeClass: "bg-red-400 text-white" },
-  ];
+  function handleChange(val: string) {
+    if (val === "qualify") {
+      onSet(offer.id, "qualify");
+    } else if (val === "doNotContact") {
+      onSet(offer.id, "doNotContact");
+    } else if (val === "__contact__") {
+      onSet(offer.id, "contact");
+    } else {
+      onSet(offer.id, "contact", val);
+    }
+  }
 
   return (
-    <div className="flex items-center gap-1">
-      <div className="flex rounded-md overflow-hidden border border-gray-200">
-        {options.map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            title={opt.key === "qualify" ? "À qualifier" : opt.key === "contact" ? "Contacté" : "Ne pas contacter"}
-            onClick={() => onSet(opt.key === current ? "qualify" : opt.key)}
-            className={cn(
-              "px-2 py-1 text-xs font-medium transition-colors",
-              current === opt.key ? opt.activeClass : "bg-white text-gray-400 hover:bg-gray-50"
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex items-center gap-2">
+      <select
+        value={currentValue}
+        onChange={(e) => handleChange(e.target.value)}
+        className={cn(
+          "text-xs border px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-pink bg-white",
+          offer.doNotContact
+            ? "border-red-200 text-red-500"
+            : offer.toContact
+            ? "border-[#26B743]/30 text-[#26B743]"
+            : "border-gray-200 text-gray-500"
+        )}
+      >
+        <option value="qualify">— À qualifier</option>
+        <option value="doNotContact">✗ Ne pas contacter</option>
+        <option value="__contact__">✓ Contacter</option>
+        {lgmAudiences.length > 0 && (
+          <optgroup label="Envoyer vers LGM">
+            {lgmAudiences.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {/* Fallback if contacted with an audience no longer in the list */}
+        {offer.toContact && offer.lgmAudience && !lgmAudiences.includes(offer.lgmAudience) && (
+          <option value={offer.lgmAudience}>{offer.lgmAudience}</option>
+        )}
+      </select>
       {offer.lgmSent && (
-        <span className="text-xs text-brand-green font-medium ml-1">LGM ✓</span>
+        <span className="text-xs text-brand-green font-medium whitespace-nowrap">LGM ✓</span>
       )}
     </div>
   );
@@ -840,7 +927,7 @@ function CustomFieldCell({
         type="number"
         defaultValue={value != null ? String(value) : ""}
         onBlur={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
+        className="border border-gray-300 px-2 py-1 text-sm w-24 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
       />
     );
   }
@@ -850,7 +937,7 @@ function CustomFieldCell({
       type={field.type === "DATE" ? "date" : "text"}
       defaultValue={value != null ? String(value) : ""}
       onBlur={(e) => onChange(e.target.value || null)}
-      className="border border-gray-300 rounded px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
+      className="border border-gray-300 px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
     />
   );
 }

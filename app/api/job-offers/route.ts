@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     const fixedHeaders = [
       "Offre d'emploi", "Entreprise", "Localisation", "Source", "Date offre", "Lead", "Email lead", "Métier lead", "LinkedIn lead",
-      "Statut contact", "Audience LGM", "LGM envoyé",
+      "Chercher numéro", "Numéro de téléphone", "Statut contact", "Audience LGM", "LGM envoyé",
     ];
     const headers = [...fixedHeaders, ...customFieldDefs.map((f) => f.label)];
 
@@ -79,6 +79,8 @@ export async function GET(req: NextRequest) {
         offer.leadEmail ?? "",
         offer.leadJobTitle ?? "",
         offer.leadLinkedin ?? "",
+        offer.phoneLookupRequested ? "Oui" : "Non",
+        offer.enrichedPhone ?? "",
         contactStatus,
         offer.lgmAudience ?? "",
         offer.lgmSent ? "Oui" : "Non",

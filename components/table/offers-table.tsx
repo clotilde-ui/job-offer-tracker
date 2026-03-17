@@ -39,6 +39,8 @@ interface JobOffer {
   doNotContact: boolean;
   lgmSent: boolean;
   lgmAudience: string | null;
+  phoneLookupRequested: boolean;
+  enrichedPhone: string | null;
   customValues: Record<string, unknown>;
 }
 
@@ -64,6 +66,8 @@ const FIXED_COLUMNS = [
   { key: "leadName", label: "Lead", defaultWidth: 150 },
   { key: "leadEmail", label: "Email lead", defaultWidth: 180 },
   { key: "leadJobTitle", label: "Métier lead", defaultWidth: 140 },
+  { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
+  { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
   { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
 ];
 
@@ -246,6 +250,33 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
         return next;
       });
     }
+  }
+
+  async function updatePhoneEnrichment(offerId: string, payload: { phoneLookupRequested?: boolean; enrichedPhone?: string | null }) {
+    const res = await fetch(`/api/job-offers/${offerId}/phone-enrichment`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) return;
+
+    const updated = await res.json();
+    setOffers((prev) =>
+      prev.map((o) =>
+        o.id === offerId
+          ? {
+              ...o,
+              phoneLookupRequested:
+                typeof updated.phoneLookupRequested === "boolean"
+                  ? updated.phoneLookupRequested
+                  : o.phoneLookupRequested,
+              enrichedPhone:
+                updated.enrichedPhone !== undefined ? updated.enrichedPhone : o.enrichedPhone,
+            }
+          : o
+      )
+    );
   }
 
   async function deleteCustomField(fieldId: string) {
@@ -693,6 +724,36 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {!hiddenColumns.has("leadJobTitle") && (
                       <td className="px-3 py-3 text-gray-600 truncate">
                         {offer.leadJobTitle ?? "—"}
+                      </td>
+                    )}
+
+                    {/* phoneLookupRequested */}
+                    {!hiddenColumns.has("phoneLookupRequested") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={offer.phoneLookupRequested}
+                          onChange={(e) => {
+                            void updatePhoneEnrichment(offer.id, { phoneLookupRequested: e.target.checked });
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                          style={{ accentColor: "#FFBEFA" }}
+                        />
+                      </td>
+                    )}
+
+                    {/* enrichedPhone */}
+                    {!hiddenColumns.has("enrichedPhone") && (
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          defaultValue={offer.enrichedPhone ?? ""}
+                          placeholder="Numéro enrichi"
+                          onBlur={(e) => {
+                            void updatePhoneEnrichment(offer.id, { enrichedPhone: e.target.value || null });
+                          }}
+                          className="border border-gray-300 px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
+                        />
                       </td>
                     )}
 

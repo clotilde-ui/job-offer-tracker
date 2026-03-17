@@ -118,6 +118,8 @@ model JobOffer {
   contactedAt         DateTime?
   lgmSent             Boolean   @default(false)
   lgmAudience         String?
+  phoneLookupRequested Boolean  @default(false)
+  enrichedPhone       String?
 
   // Champs personnalisés (JSON stocké en texte pour SQLite)
   customValues        String    @default("{}")

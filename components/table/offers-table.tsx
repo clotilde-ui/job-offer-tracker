@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "@/lib/cn";
 import { AddCustomFieldModal } from "@/components/forms/add-custom-field-modal";
 
@@ -9,6 +9,7 @@ interface CustomField {
   name: string;
   label: string;
   type: string;
+  formula?: string | null;
 }
 
 interface JobOffer {
@@ -41,6 +42,31 @@ interface OffersTableProps {
   customFields: CustomField[];
 }
 
+const FIXED_COLUMNS = [
+  { key: "title", label: "Offre d'emploi", defaultWidth: 220 },
+  { key: "company", label: "Entreprise", defaultWidth: 180 },
+  { key: "offerLocation", label: "Localisation", defaultWidth: 130 },
+  { key: "source", label: "Source", defaultWidth: 100 },
+  { key: "publishedAt", label: "Date offre", defaultWidth: 110 },
+  { key: "leadName", label: "Lead", defaultWidth: 150 },
+  { key: "leadEmail", label: "Email lead", defaultWidth: 180 },
+  { key: "leadJobTitle", label: "Métier lead", defaultWidth: 140 },
+  { key: "toContact", label: "CONTACTER", defaultWidth: 100 },
+];
+
+const CUSTOM_FIELD_DEFAULT_WIDTH = 130;
+
+function evalFormula(formula: string, offer: JobOffer): string {
+  return formula.replace(/\{(\w+)\}/g, (_, key) => {
+    const val = (offer as unknown as Record<string, unknown>)[key];
+    if (val == null) return "";
+    if (key === "publishedAt" && typeof val === "string") {
+      return new Date(val).toLocaleDateString("fr-FR");
+    }
+    return String(val);
+  });
+}
+
 export function OffersTable({ customFields: initialCustomFields }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
@@ -51,8 +77,44 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
   const [customFields, setCustomFields] = useState<CustomField[]>(initialCustomFields);
   const [showAddField, setShowAddField] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [aiGenerating, setAiGenerating] = useState<Set<string>>(new Set());
+
+  // Column visibility & widths — loaded from localStorage on mount
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
 
   const LIMIT = 50;
+
+  // Load preferences from localStorage
+  useEffect(() => {
+    const savedHidden = localStorage.getItem("jot_hidden_cols");
+    if (savedHidden) setHiddenColumns(new Set(JSON.parse(savedHidden)));
+    const savedWidths = localStorage.getItem("jot_col_widths");
+    if (savedWidths) setColWidths(JSON.parse(savedWidths));
+  }, []);
+
+  // Persist preferences
+  useEffect(() => {
+    localStorage.setItem("jot_hidden_cols", JSON.stringify([...hiddenColumns]));
+  }, [hiddenColumns]);
+
+  useEffect(() => {
+    localStorage.setItem("jot_col_widths", JSON.stringify(colWidths));
+  }, [colWidths]);
+
+  // Close column menu on outside click
+  useEffect(() => {
+    if (!showColumnMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target as Node)) {
+        setShowColumnMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showColumnMenu]);
 
   const fetchOffers = useCallback(async () => {
     setLoading(true);
@@ -86,9 +148,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
       body: JSON.stringify({ toContact: !current }),
     });
     if (res.ok) {
-      setOffers((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, toContact: !current } : o))
-      );
+      setOffers((prev) => prev.map((o) => (o.id === id ? { ...o, toContact: !current } : o)));
     }
   }
 
@@ -100,19 +160,43 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
     });
     setOffers((prev) =>
       prev.map((o) =>
-        o.id === offerId
-          ? { ...o, customValues: { ...o.customValues, [fieldName]: value } }
-          : o
+        o.id === offerId ? { ...o, customValues: { ...o.customValues, [fieldName]: value } } : o
       )
     );
+  }
+
+  async function generateAIValue(offerId: string, field: CustomField) {
+    const key = `${offerId}-${field.id}`;
+    setAiGenerating((prev) => new Set([...prev, key]));
+    try {
+      const res = await fetch(`/api/job-offers/${offerId}/ai-field`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fieldId: field.id, prompt: field.formula }),
+      });
+      if (res.ok) {
+        const { value } = await res.json();
+        setOffers((prev) =>
+          prev.map((o) =>
+            o.id === offerId
+              ? { ...o, customValues: { ...o.customValues, [field.name]: value } }
+              : o
+          )
+        );
+      }
+    } finally {
+      setAiGenerating((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   }
 
   async function deleteCustomField(fieldId: string) {
     if (!confirm("Supprimer ce champ ? Les données associées seront perdues.")) return;
     const res = await fetch(`/api/custom-fields/${fieldId}`, { method: "DELETE" });
-    if (res.ok) {
-      setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
-    }
+    if (res.ok) setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -121,18 +205,48 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
     setPage(1);
   }
 
+  function toggleColumn(key: string) {
+    setHiddenColumns((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  function handleResizeMouseDown(e: React.MouseEvent<HTMLDivElement>, colKey: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.currentTarget.parentElement as HTMLTableCellElement;
+    const startX = e.clientX;
+    const startWidth = th.offsetWidth;
+
+    const onMouseMove = (moveE: MouseEvent) => {
+      const newWidth = Math.max(60, startWidth + (moveE.clientX - startX));
+      setColWidths((prev) => ({ ...prev, [colKey]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  function getColWidth(key: string, defaultWidth: number): number {
+    return colWidths[key] ?? defaultWidth;
+  }
+
   const totalPages = Math.ceil(total / LIMIT);
 
-  const fixedColumns = [
-    { key: "title", label: "Offre d'emploi" },
-    { key: "company", label: "Entreprise" },
-    { key: "offerLocation", label: "Localisation offre" },
-    { key: "source", label: "Source" },
-    { key: "publishedAt", label: "Date création offre" },
-    { key: "leadName", label: "Lead" },
-    { key: "leadEmail", label: "Email lead" },
-    { key: "leadJobTitle", label: "Métier lead" },
-    { key: "toContact", label: "CONTACTER" },
+  const visibleFixed = FIXED_COLUMNS.filter((c) => !hiddenColumns.has(c.key));
+  const visibleCustom = customFields.filter((f) => !hiddenColumns.has(f.id));
+  const visibleCount = visibleFixed.length + visibleCustom.length;
+
+  const allColumnsForMenu = [
+    ...FIXED_COLUMNS,
+    ...customFields.map((f) => ({ key: f.id, label: f.label, defaultWidth: CUSTOM_FIELD_DEFAULT_WIDTH })),
   ];
 
   return (
@@ -168,6 +282,53 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
           <span className="text-sm text-gray-500">
             {total} offre{total > 1 ? "s" : ""}
           </span>
+
+          {/* Column visibility menu */}
+          <div className="relative" ref={columnMenuRef}>
+            <button
+              onClick={() => setShowColumnMenu((v) => !v)}
+              className="text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1.5 transition-colors"
+            >
+              <span>⊞</span> Colonnes
+              {hiddenColumns.size > 0 && (
+                <span className="bg-brand-pink text-brand-dark text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                  {hiddenColumns.size}
+                </span>
+              )}
+            </button>
+
+            {showColumnMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-20 min-w-[210px]">
+                <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                  Afficher / masquer
+                </p>
+                {allColumnsForMenu.map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!hiddenColumns.has(col.key)}
+                      onChange={() => toggleColumn(col.key)}
+                      style={{ accentColor: "#FFBEFA" }}
+                      className="w-3.5 h-3.5"
+                    />
+                    <span className="text-sm text-brand-dark">{col.label}</span>
+                  </label>
+                ))}
+                {hiddenColumns.size > 0 && (
+                  <button
+                    onClick={() => setHiddenColumns(new Set())}
+                    className="mt-2 w-full text-xs text-gray-500 hover:text-brand-dark text-left px-1"
+                  >
+                    Tout afficher
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setShowAddField(true)}
             className="text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
@@ -179,32 +340,50 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-sm border-collapse">
+        <table
+          className="text-sm border-collapse"
+          style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
+        >
           <thead>
-            <tr className="bg-brand-dark border-b border-gray-200">
-              {fixedColumns.map((col) => (
+            <tr className="bg-brand-dark border-b border-gray-800">
+              {visibleFixed.map((col) => (
                 <th
                   key={col.key}
-                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap"
+                  style={{ width: getColWidth(col.key, col.defaultWidth), position: "relative" }}
+                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap select-none"
                 >
                   {col.label}
+                  <div
+                    onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
+                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
+                  />
                 </th>
               ))}
-              {customFields.map((field) => (
+              {visibleCustom.map((field) => (
                 <th
                   key={field.id}
-                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap"
+                  style={{
+                    width: getColWidth(field.id, CUSTOM_FIELD_DEFAULT_WIDTH),
+                    position: "relative",
+                  }}
+                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap select-none"
                 >
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 pr-3">
+                    {field.type === "AI" && <span title="Champ IA">⚡</span>}
+                    {field.type === "FORMULA" && <span title="Champ formule">ƒ</span>}
                     {field.label}
                     <button
                       onClick={() => deleteCustomField(field.id)}
-                      className="text-white/40 hover:text-red-400 ml-1 text-xs"
+                      className="text-white/30 hover:text-red-400 ml-1 text-xs"
                       title="Supprimer ce champ"
                     >
                       ✕
                     </button>
                   </span>
+                  <div
+                    onMouseDown={(e) => handleResizeMouseDown(e, field.id)}
+                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
+                  />
                 </th>
               ))}
             </tr>
@@ -212,19 +391,13 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
           <tbody>
             {loading ? (
               <tr>
-                <td
-                  colSpan={fixedColumns.length + customFields.length}
-                  className="px-3 py-8 text-center text-gray-400"
-                >
+                <td colSpan={visibleCount} className="px-3 py-8 text-center text-gray-400">
                   Chargement...
                 </td>
               </tr>
             ) : offers.length === 0 ? (
               <tr>
-                <td
-                  colSpan={fixedColumns.length + customFields.length}
-                  className="px-3 py-8 text-center text-gray-400"
-                >
+                <td colSpan={visibleCount} className="px-3 py-8 text-center text-gray-400">
                   Aucune offre. Les données arrivent via votre webhook Mantiks.
                 </td>
               </tr>
@@ -237,86 +410,34 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                       "border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer",
                       offer.toContact && "bg-[#26B743]/10"
                     )}
-                    onClick={() =>
-                      setExpandedRow(expandedRow === offer.id ? null : offer.id)
-                    }
+                    onClick={() => setExpandedRow(expandedRow === offer.id ? null : offer.id)}
                   >
-                    {/* Offre */}
-                    <td className="px-3 py-3 max-w-[220px]">
-                      <div className="font-medium text-brand-dark truncate">
-                        {offer.title}
-                      </div>
-                      {offer.url && (
-                        <a
-                          href={offer.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-xs text-brand-dark underline hover:text-brand-pink"
-                        >
-                          Voir l&apos;offre
-                        </a>
-                      )}
-                    </td>
-
-                    {/* Entreprise */}
-                    <td className="px-3 py-3 max-w-[180px]">
-                      <div className="font-medium truncate text-brand-dark">{offer.company}</div>
-                      <div className="flex gap-2 mt-0.5">
-                        {offer.linkedinPage && (
+                    {/* Title */}
+                    {!hiddenColumns.has("title") && (
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("title", 220) }}>
+                        <div className="font-medium text-brand-dark truncate">{offer.title}</div>
+                        {offer.url && (
                           <a
-                            href={offer.linkedinPage}
+                            href={offer.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="text-xs text-brand-dark underline hover:text-brand-pink"
                           >
-                            LinkedIn
+                            Voir l&apos;offre
                           </a>
                         )}
-                        {offer.website && (
-                          <a
-                            href={offer.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-xs text-brand-dark underline hover:text-brand-pink"
-                          >
-                            Site
-                          </a>
-                        )}
-                      </div>
-                    </td>
+                      </td>
+                    )}
 
-                    {/* Localisation offre */}
-                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
-                      {offer.offerLocation ?? "—"}
-                    </td>
-
-                    {/* Source */}
-                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
-                      {offer.source ?? "—"}
-                    </td>
-
-                    {/* Date */}
-                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
-                      {offer.publishedAt
-                        ? new Date(offer.publishedAt).toLocaleDateString("fr-FR")
-                        : "—"}
-                    </td>
-
-                    {/* Lead */}
-                    <td className="px-3 py-3 max-w-[160px]">
-                      {offer.leadFirstName || offer.leadLastName ? (
-                        <div>
-                          <div className="font-medium truncate text-brand-dark">
-                            {[offer.leadCivility, offer.leadFirstName, offer.leadLastName]
-                              .filter(Boolean)
-                              .join(" ")}
-                          </div>
-                          {offer.leadLinkedin && (
+                    {/* Company */}
+                    {!hiddenColumns.has("company") && (
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("company", 180) }}>
+                        <div className="font-medium truncate text-brand-dark">{offer.company}</div>
+                        <div className="flex gap-2 mt-0.5">
+                          {offer.linkedinPage && (
                             <a
-                              href={offer.leadLinkedin}
+                              href={offer.linkedinPage}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
@@ -325,52 +446,114 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                               LinkedIn
                             </a>
                           )}
+                          {offer.website && (
+                            <a
+                              href={offer.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs text-brand-dark underline hover:text-brand-pink"
+                            >
+                              Site
+                            </a>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
+                      </td>
+                    )}
 
-                    {/* Email lead */}
-                    <td className="px-3 py-3 text-gray-600">
-                      {offer.leadEmail ? (
-                        <a
-                          href={`mailto:${offer.leadEmail}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="hover:underline hover:text-brand-pink"
-                        >
-                          {offer.leadEmail}
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
+                    {/* offerLocation */}
+                    {!hiddenColumns.has("offerLocation") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">
+                        {offer.offerLocation ?? "—"}
+                      </td>
+                    )}
 
-                    {/* Métier lead */}
-                    <td className="px-3 py-3 text-gray-600 max-w-[150px] truncate">
-                      {offer.leadJobTitle ?? "—"}
-                    </td>
+                    {/* source */}
+                    {!hiddenColumns.has("source") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.source ?? "—"}</td>
+                    )}
 
-                    {/* CONTACTER */}
-                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={offer.toContact}
-                          onChange={() => toggleContact(offer.id, offer.toContact)}
-                          className="w-4 h-4 cursor-pointer"
-                          style={{ accentColor: "#FFBEFA" }}
-                        />
-                        {offer.lgmSent && (
-                          <span className="text-xs text-brand-green font-medium">
-                            LGM ✓
-                          </span>
+                    {/* publishedAt */}
+                    {!hiddenColumns.has("publishedAt") && (
+                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
+                        {offer.publishedAt
+                          ? new Date(offer.publishedAt).toLocaleDateString("fr-FR")
+                          : "—"}
+                      </td>
+                    )}
+
+                    {/* leadName */}
+                    {!hiddenColumns.has("leadName") && (
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("leadName", 150) }}>
+                        {offer.leadFirstName || offer.leadLastName ? (
+                          <div>
+                            <div className="font-medium truncate text-brand-dark">
+                              {[offer.leadCivility, offer.leadFirstName, offer.leadLastName]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </div>
+                            {offer.leadLinkedin && (
+                              <a
+                                href={offer.leadLinkedin}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-brand-dark underline hover:text-brand-pink"
+                              >
+                                LinkedIn
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
                         )}
-                      </div>
-                    </td>
+                      </td>
+                    )}
 
-                    {/* Champs personnalisés */}
-                    {customFields.map((field) => (
+                    {/* leadEmail */}
+                    {!hiddenColumns.has("leadEmail") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">
+                        {offer.leadEmail ? (
+                          <a
+                            href={`mailto:${offer.leadEmail}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:underline hover:text-brand-pink"
+                          >
+                            {offer.leadEmail}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
+
+                    {/* leadJobTitle */}
+                    {!hiddenColumns.has("leadJobTitle") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">
+                        {offer.leadJobTitle ?? "—"}
+                      </td>
+                    )}
+
+                    {/* toContact */}
+                    {!hiddenColumns.has("toContact") && (
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={offer.toContact}
+                            onChange={() => toggleContact(offer.id, offer.toContact)}
+                            className="w-4 h-4 cursor-pointer"
+                            style={{ accentColor: "#FFBEFA" }}
+                          />
+                          {offer.lgmSent && (
+                            <span className="text-xs text-brand-green font-medium">LGM ✓</span>
+                          )}
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Custom fields */}
+                    {visibleCustom.map((field) => (
                       <td
                         key={field.id}
                         className="px-3 py-3"
@@ -378,22 +561,20 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                       >
                         <CustomFieldCell
                           field={field}
+                          offer={offer}
                           value={offer.customValues?.[field.name]}
-                          onChange={(val) =>
-                            updateCustomValue(offer.id, field.name, val)
-                          }
+                          aiLoading={aiGenerating.has(`${offer.id}-${field.id}`)}
+                          onChange={(val) => updateCustomValue(offer.id, field.name, val)}
+                          onGenerate={() => generateAIValue(offer.id, field)}
                         />
                       </td>
                     ))}
                   </tr>
 
-                  {/* Ligne étendue — détails */}
+                  {/* Expanded row */}
                   {expandedRow === offer.id && (
                     <tr key={`${offer.id}-expanded`} className="bg-[#FFBEFA]/10 border-b border-gray-200">
-                      <td
-                        colSpan={fixedColumns.length + customFields.length}
-                        className="px-6 py-4"
-                      >
+                      <td colSpan={visibleCount} className="px-6 py-4">
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
                           {offer.description && (
                             <div className="col-span-full">
@@ -439,7 +620,6 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
         </div>
       )}
 
-      {/* Modal ajout champ */}
       {showAddField && (
         <AddCustomFieldModal
           onClose={() => setShowAddField(false)}
@@ -465,13 +645,50 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
 
 function CustomFieldCell({
   field,
+  offer,
   value,
+  aiLoading,
   onChange,
+  onGenerate,
 }: {
   field: CustomField;
+  offer: JobOffer;
   value: unknown;
+  aiLoading: boolean;
   onChange: (val: unknown) => void;
+  onGenerate: () => void;
 }) {
+  // Formula: computed client-side, read-only
+  if (field.type === "FORMULA") {
+    const result = field.formula ? evalFormula(field.formula, offer) : "—";
+    return <span className="text-sm text-gray-600">{result || "—"}</span>;
+  }
+
+  // AI: stored value + generate button
+  if (field.type === "AI") {
+    return (
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-sm text-gray-600 truncate flex-1">
+          {value != null && String(value) !== "" ? String(value) : (
+            <span className="text-gray-300">—</span>
+          )}
+        </span>
+        <button
+          onClick={onGenerate}
+          disabled={aiLoading}
+          className="text-brand-pink hover:opacity-70 disabled:opacity-40 text-base shrink-0"
+          title="Générer avec l'IA"
+        >
+          {aiLoading ? (
+            <span className="text-xs text-gray-400">...</span>
+          ) : (
+            "⚡"
+          )}
+        </button>
+      </div>
+    );
+  }
+
   if (field.type === "BOOLEAN") {
     return (
       <input
@@ -500,7 +717,7 @@ function CustomFieldCell({
       type={field.type === "DATE" ? "date" : "text"}
       defaultValue={value != null ? String(value) : ""}
       onBlur={(e) => onChange(e.target.value || null)}
-      className="border border-gray-300 rounded px-2 py-1 text-sm w-32 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
+      className="border border-gray-300 rounded px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
     />
   );
 }

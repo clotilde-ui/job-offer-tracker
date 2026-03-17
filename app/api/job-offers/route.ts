@@ -7,8 +7,12 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const userId = session.user.id;
+  const selfId = session.user.id;
+  const isAdmin = session.user.role === "ADMIN";
   const { searchParams } = new URL(req.url);
+
+  const requestedTargetId = searchParams.get("targetUserId");
+  const userId = isAdmin && requestedTargetId ? requestedTargetId : selfId;
 
   const rawPage = parseInt(searchParams.get("page") ?? "1");
   const rawLimit = parseInt(searchParams.get("limit") ?? "50");

@@ -42,6 +42,7 @@ interface JobOffer {
 
 interface OffersTableProps {
   customFields: CustomField[];
+  targetUserId?: string;
 }
 
 const FIXED_COLUMNS = [
@@ -69,7 +70,7 @@ function evalFormula(formula: string, offer: JobOffer): string {
   });
 }
 
-export function OffersTable({ customFields: initialCustomFields }: OffersTableProps) {
+export function OffersTable({ customFields: initialCustomFields, targetUserId }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -133,6 +134,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
         sortDir,
         ...(search ? { search } : {}),
         ...(filterToContact ? { filterToContact } : {}),
+        ...(targetUserId ? { targetUserId } : {}),
       });
       const res = await fetch(`/api/job-offers?${params}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -145,7 +147,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
     } finally {
       setLoading(false);
     }
-  }, [page, search, sortBy, sortDir, filterToContact]);
+  }, [page, search, sortBy, sortDir, filterToContact, targetUserId]);
 
   useEffect(() => {
     fetchOffers();

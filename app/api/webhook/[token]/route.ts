@@ -60,34 +60,38 @@ export async function POST(
     return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
   }
 
-  // Mantiks peut envoyer un tableau ou un objet unique
-  const offers = Array.isArray(body) ? body : [body];
+  // Mantiks envoie { leads: [...] }
+  const leads: Record<string, unknown>[] = Array.isArray(body.leads)
+    ? body.leads
+    : Array.isArray(body)
+    ? body
+    : [body];
 
   const created = await Promise.all(
-    offers.map(async (offer: Record<string, unknown>) => {
+    leads.map(async (lead: Record<string, unknown>) => {
       return prisma.jobOffer.create({
         data: {
           userId: user.id,
-          title: sanitizeString(offer.job_title ?? offer.title) ?? "Sans titre",
-          description: sanitizeString(offer.description, 10000),
-          url: sanitizeUrl(offer.job_url ?? offer.url),
-          company: sanitizeString(offer.company ?? offer.company_name) ?? "Inconnu",
-          linkedinPage: sanitizeUrl(offer.company_linkedin),
-          website: sanitizeUrl(offer.company_website),
-          phone: sanitizeString(offer.company_phone, 50),
-          headquarters: sanitizeString(offer.company_location ?? offer.headquarters, 500),
-          offerLocation: sanitizeString(offer.location ?? offer.job_location, 500),
-          source: sanitizeString(offer.source, 200),
-          publishedAt: (offer.published_at ?? offer.created_at)
-            ? new Date(String(offer.published_at ?? offer.created_at))
+          title: sanitizeString(lead.job_offer_title) ?? "Sans titre",
+          description: sanitizeString(lead.job_offer_description, 10000),
+          url: sanitizeUrl(lead.job_offer_url),
+          company: sanitizeString(lead.company_name) ?? "Inconnu",
+          linkedinPage: sanitizeUrl(lead.company_linkedin),
+          website: sanitizeUrl(lead.company_website),
+          phone: sanitizeString(lead.company_phone, 50),
+          headquarters: sanitizeString(lead.hq_location, 500),
+          offerLocation: sanitizeString(lead.job_offer_location, 500),
+          source: sanitizeString(lead.job_offer_source, 200),
+          publishedAt: lead.job_creation_date
+            ? new Date(String(lead.job_creation_date))
             : null,
-          leadCivility: sanitizeString(offer.lead_civility ?? offer.civility, 20),
-          leadFirstName: sanitizeString(offer.lead_first_name ?? offer.first_name, 100),
-          leadLastName: sanitizeString(offer.lead_last_name ?? offer.last_name, 100),
-          leadEmail: sanitizeString(offer.lead_email ?? offer.email, 254),
-          leadJobTitle: sanitizeString(offer.lead_job_title ?? offer.lead_position, 200),
-          leadLinkedin: sanitizeUrl(offer.lead_linkedin),
-          leadPhone: sanitizeString(offer.lead_phone, 50),
+          leadCivility: sanitizeString(lead.lead_civility, 20),
+          leadFirstName: sanitizeString(lead.lead_first_name, 100),
+          leadLastName: sanitizeString(lead.lead_last_name, 100),
+          leadEmail: sanitizeString(lead.lead_email, 254),
+          leadJobTitle: sanitizeString(lead.lead_job_title, 200),
+          leadLinkedin: sanitizeUrl(lead.lead_linkedin),
+          leadPhone: sanitizeString(lead.lead_phones, 50),
         },
       });
     })

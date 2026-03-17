@@ -16,6 +16,13 @@ model User {
   webhookToken   String    @unique @default(cuid())
   lgmApiKey      String?
   lgmCampaignId  String?
+
+  aiProvider     String?
+  claudeApiKey   String?
+  geminiApiKey   String?
+  groqApiKey     String?
+  openaiApiKey   String?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

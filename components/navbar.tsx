@@ -6,7 +6,7 @@ import { signOut } from "next-auth/react";
 import { cn } from "@/lib/cn";
 
 interface NavbarProps {
-  user: { name?: string | null; email?: string | null; role: string };
+  user: { name?: string | null; email?: string | null; role: string; workspaceName?: string | null };
 }
 
 export function Navbar({ user }: NavbarProps) {
@@ -17,6 +17,7 @@ export function Navbar({ user }: NavbarProps) {
     ...(user.role === "ADMIN"
       ? [
           { href: "/settings", label: "Paramètres" },
+          { href: "/admin/workspaces", label: "Workspaces" },
           { href: "/admin/users", label: "Utilisateurs" },
         ]
       : []),
@@ -43,6 +44,7 @@ export function Navbar({ user }: NavbarProps) {
       </nav>
 
       <div className="flex items-center gap-4">
+        {user.workspaceName && <span className="text-sm text-white/50">{user.workspaceName}</span>}
         <span className="text-sm text-white/50">{user.name ?? user.email}</span>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}

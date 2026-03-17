@@ -37,9 +37,9 @@ export async function GET() {
   });
 
   // Mask lgmApiKey — the admin UI only needs to know if it's configured
-  const masked = users.map(({ lgmApiKey, ...u }) => ({
-    ...u,
-    lgmApiKey: lgmApiKey ? "••••••••" : null,
+  const masked = users.map((user: (typeof users)[number]) => ({
+    ...user,
+    lgmApiKey: user.lgmApiKey ? "••••••••" : null,
   }));
 
   return NextResponse.json(masked);

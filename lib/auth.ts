@@ -29,11 +29,14 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
 
+        if (user.role !== "ADMIN" && !user.workspaceId) return null;
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
+          workspaceId: user.workspaceId,
         };
       },
     }),
@@ -43,12 +46,14 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.workspaceId = user.workspaceId;
       }
       return token;
     },
     async session({ session, token }) {
       session.user.role = token.role;
       session.user.id = token.id;
+      session.user.workspaceId = token.workspaceId;
       return session;
     },
   },

@@ -21,6 +21,7 @@ interface AddCustomFieldModalProps {
   onClose: () => void;
   onCreated: (field: CustomField) => void;
   existingCustomFields?: ExistingField[];
+  workspaceId?: string;
 }
 
 const FIELD_TYPES = [
@@ -57,7 +58,7 @@ const LGM_OPTIONS = [
   })),
 ];
 
-export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields = [] }: AddCustomFieldModalProps) {
+export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields = [], workspaceId }: AddCustomFieldModalProps) {
   const [label, setLabel] = useState("");
   const [type, setType] = useState("TEXT");
   const [formula, setFormula] = useState("");
@@ -76,7 +77,7 @@ export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields =
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/custom-fields", {
+    const res = await fetch(`/api/custom-fields${workspaceId ? `?workspaceId=${workspaceId}` : ""}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

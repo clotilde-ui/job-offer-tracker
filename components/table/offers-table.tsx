@@ -51,7 +51,7 @@ interface Stats {
 
 interface OffersTableProps {
   customFields: CustomField[];
-  targetUserId?: string;
+  targetWorkspaceId?: string;
   lgmAudiences: string[];
 }
 
@@ -80,7 +80,7 @@ function evalFormula(formula: string, offer: JobOffer): string {
   });
 }
 
-export function OffersTable({ customFields: initialCustomFields, targetUserId, lgmAudiences }: OffersTableProps) {
+export function OffersTable({ customFields: initialCustomFields, targetWorkspaceId, lgmAudiences }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -145,7 +145,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
         sortDir,
         ...(search ? { search } : {}),
         ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
-        ...(targetUserId ? { targetUserId } : {}),
+        ...(targetWorkspaceId ? { targetWorkspaceId } : {}),
       });
       const res = await fetch(`/api/job-offers?${params}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -159,7 +159,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
     } finally {
       setLoading(false);
     }
-  }, [page, search, sortBy, sortDir, filterStatuses, targetUserId]);
+  }, [page, search, sortBy, sortDir, filterStatuses, targetWorkspaceId]);
 
   useEffect(() => {
     fetchOffers();
@@ -270,7 +270,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
       sortDir,
       ...(search ? { search } : {}),
       ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
-      ...(targetUserId ? { targetUserId } : {}),
+      ...(targetWorkspaceId ? { targetWorkspaceId } : {}),
     });
     window.open(`/api/job-offers?${params}`, "_blank");
   }
@@ -777,6 +777,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
 
       {showAddField && (
         <AddCustomFieldModal
+          workspaceId={targetWorkspaceId}
           onClose={() => setShowAddField(false)}
           onCreated={(field) => {
             setCustomFields((prev) => [...prev, field]);

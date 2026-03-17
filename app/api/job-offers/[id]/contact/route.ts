@@ -34,28 +34,25 @@ export async function PATCH(
 
     if (user?.lgmApiKey && user?.lgmCampaignId) {
       try {
-        const res = await fetch("https://api.lagrowthmachine.com/v1/leads", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${user.lgmApiKey}`,
-          },
-          body: JSON.stringify({
-            campaign_id: user.lgmCampaignId,
-            leads: [
-              {
-                first_name: offer.leadFirstName,
-                last_name: offer.leadLastName,
-                email: offer.leadEmail,
-                phone: offer.leadPhone,
-                linkedin_url: offer.leadLinkedin,
-                job_title: offer.leadJobTitle,
-                company_name: offer.company,
-                company_website: offer.website,
-              },
-            ],
-          }),
-        });
+        const body = new URLSearchParams();
+        body.set("audience", user.lgmCampaignId);
+        if (offer.leadFirstName) body.set("firstname", offer.leadFirstName);
+        if (offer.leadLastName) body.set("lastname", offer.leadLastName);
+        if (offer.leadEmail) body.set("proEmail", offer.leadEmail);
+        if (offer.leadPhone) body.set("phone", offer.leadPhone);
+        if (offer.leadLinkedin) body.set("linkedinUrl", offer.leadLinkedin);
+        if (offer.leadJobTitle) body.set("jobTitle", offer.leadJobTitle);
+        if (offer.company) body.set("companyName", offer.company);
+        if (offer.website) body.set("companyUrl", offer.website);
+
+        const res = await fetch(
+          `https://apiv2.lagrowthmachine.com/flow/leads?apikey=${encodeURIComponent(user.lgmApiKey)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString(),
+          }
+        );
 
         if (res.ok) {
           await prisma.jobOffer.update({

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { createClient } from "@libsql/client";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
@@ -20,11 +19,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const libsql = createClient({
+  const adapter = new PrismaLibSql({
     url: process.env.TURSO_DATABASE_URL!,
     authToken: process.env.TURSO_AUTH_TOKEN!,
   });
-  const adapter = new PrismaLibSql(libsql);
   const prisma = new PrismaClient({ adapter });
 
   try {
@@ -35,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { email, password: hashed, role: "ADMIN" },
+      data: { email, password: hashed, role: "ADMIN", name: "Admin" },
     });
 
     return NextResponse.json({ message: "Admin créé", email: user.email });

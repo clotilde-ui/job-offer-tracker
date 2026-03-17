@@ -13,25 +13,37 @@ model User {
   password       String
   name           String
   role           String    @default("USER")
-  webhookToken   String    @unique @default(cuid())
+  workspaceId    String?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  sessions       Session[]
+  accounts       Account[]
+
+  @@index([workspaceId])
+}
+
+model Workspace {
+  id             String           @id @default(cuid())
+  name           String           @unique
+  webhookToken   String           @unique @default(cuid())
   lgmApiKey      String?
   lgmCampaignId  String?
-  lgmAudiences   String?   @default("[]")
-
+  lgmAudiences   String?          @default("[]")
   aiProvider     String?
   claudeApiKey   String?
   geminiApiKey   String?
   groqApiKey     String?
   openaiApiKey   String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
+  users          User[]
   jobOffers      JobOffer[]
   customFields   CustomFieldDef[]
-
-  sessions       Session[]
-  accounts       Account[]
 }
 
 model Account {
@@ -71,7 +83,7 @@ model VerificationToken {
 
 model JobOffer {
   id                  String    @id @default(cuid())
-  userId              String
+  workspaceId         String
 
   // Offre d'emploi
   title               String
@@ -110,16 +122,16 @@ model JobOffer {
   // Champs personnalisés (JSON stocké en texte pour SQLite)
   customValues        String    @default("{}")
 
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([workspaceId])
   @@index([toContact])
   @@index([receivedAt])
 }
 
 model CustomFieldDef {
   id        String   @id @default(cuid())
-  userId    String
+  workspaceId    String
   name      String
   label     String
   type         String   @default("TEXT")
@@ -129,7 +141,7 @@ model CustomFieldDef {
   order        Int      @default(0)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, name])
+  @@unique([workspaceId, name])
 }

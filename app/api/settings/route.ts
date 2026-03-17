@@ -2,22 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveWorkspaceId } from "@/lib/workspace-access";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const isAdmin = session.user.role === "ADMIN";
-  const requestedUserId = new URL(req.url).searchParams.get("userId");
-  const targetUserId = isAdmin && requestedUserId ? requestedUserId : session.user.id;
+  const workspaceId = resolveWorkspaceId(session, req);
+  if (!workspaceId) return NextResponse.json({ error: "Workspace requis" }, { status: 400 });
 
-  if (!isAdmin && targetUserId !== session.user.id) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: targetUserId },
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
     select: {
+      id: true,
+      name: true,
       webhookToken: true,
       lgmApiKey: true,
       lgmCampaignId: true,
@@ -30,33 +28,21 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(user);
+  return NextResponse.json(workspace);
 }
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const isAdmin = session.user.role === "ADMIN";
-  const requestedUserId = new URL(req.url).searchParams.get("userId");
-  const targetUserId = isAdmin && requestedUserId ? requestedUserId : session.user.id;
+  const workspaceId = resolveWorkspaceId(session, req);
+  if (!workspaceId) return NextResponse.json({ error: "Workspace requis" }, { status: 400 });
 
-  if (!isAdmin && targetUserId !== session.user.id) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
-  }
+  const { lgmApiKey, lgmAudiences, aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey } =
+    await req.json();
 
-  const {
-    lgmApiKey,
-    lgmAudiences,
-    aiProvider,
-    claudeApiKey,
-    geminiApiKey,
-    groqApiKey,
-    openaiApiKey,
-  } = await req.json();
-
-  const user = await prisma.user.update({
-    where: { id: targetUserId },
+  const workspace = await prisma.workspace.update({
+    where: { id: workspaceId },
     data: {
       lgmApiKey,
       lgmAudiences: Array.isArray(lgmAudiences) ? JSON.stringify(lgmAudiences) : lgmAudiences,
@@ -77,5 +63,5 @@ export async function PATCH(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(user);
+  return NextResponse.json(workspace);
 }

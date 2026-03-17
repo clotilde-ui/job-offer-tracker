@@ -12,9 +12,15 @@ interface CustomField {
   autoFill?: boolean;
 }
 
+interface ExistingField {
+  name: string;
+  label: string;
+}
+
 interface AddCustomFieldModalProps {
   onClose: () => void;
   onCreated: (field: CustomField) => void;
+  existingCustomFields?: ExistingField[];
 }
 
 const FIELD_TYPES = [
@@ -38,7 +44,7 @@ const FORMULA_VARS = [
   { key: "{description}", label: "Description" },
 ];
 
-const AI_VARS = FORMULA_VARS.map((v) => ({
+const AI_VARS_BASE = FORMULA_VARS.map((v) => ({
   key: `{{${v.key.slice(1, -1)}}}`,
   label: v.label,
 }));
@@ -51,7 +57,7 @@ const LGM_OPTIONS = [
   })),
 ];
 
-export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalProps) {
+export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields = [] }: AddCustomFieldModalProps) {
   const [label, setLabel] = useState("");
   const [type, setType] = useState("TEXT");
   const [formula, setFormula] = useState("");
@@ -59,6 +65,11 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
   const [autoFill, setAutoFill] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const aiVars = [
+    ...AI_VARS_BASE,
+    ...existingCustomFields.map((f) => ({ key: `{{${f.name}}}`, label: f.label })),
+  ];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,7 +171,7 @@ export function AddCustomFieldModal({ onClose, onCreated }: AddCustomFieldModalP
                 placeholder="Ex: Nettoie ce titre d'offre pour un message de prospection : {{title}}"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink resize-none"
               />
-              <VarPicker vars={AI_VARS} onInsert={(v) => setFormula((f) => f + v)} />
+              <VarPicker vars={aiVars} onInsert={(v) => setFormula((f) => f + v)} />
               <p className="text-xs text-gray-400 mt-1.5">
                 Utilisez <code className="bg-gray-100 px-1 rounded">{"{{field}}"}</code> pour injecter des données de l&apos;offre dans le prompt.
               </p>

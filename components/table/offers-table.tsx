@@ -81,6 +81,11 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<Set<string>>(new Set());
 
+  // Sort & filter
+  const [sortBy, setSortBy] = useState("receivedAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [filterToContact, setFilterToContact] = useState<"" | "true" | "false">("");
+
   // Column visibility & widths — loaded from localStorage on mount
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
@@ -124,7 +129,10 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
       const params = new URLSearchParams({
         page: String(page),
         limit: String(LIMIT),
+        sortBy,
+        sortDir,
         ...(search ? { search } : {}),
+        ...(filterToContact ? { filterToContact } : {}),
       });
       const res = await fetch(`/api/job-offers?${params}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -137,7 +145,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, sortBy, sortDir, filterToContact]);
 
   useEffect(() => {
     fetchOffers();
@@ -201,6 +209,25 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
     if (res.ok) setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
   }
 
+  async function deleteOffer(id: string) {
+    if (!confirm("Supprimer cette offre ?")) return;
+    const res = await fetch(`/api/job-offers/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setOffers((prev) => prev.filter((o) => o.id !== id));
+      setTotal((t) => t - 1);
+    }
+  }
+
+  function handleSort(col: string) {
+    if (sortBy === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(col);
+      setSortDir("asc");
+    }
+    setPage(1);
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearch(searchInput);
@@ -244,7 +271,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
 
   const visibleFixed = FIXED_COLUMNS.filter((c) => !hiddenColumns.has(c.key));
   const visibleCustom = customFields.filter((f) => !hiddenColumns.has(f.id));
-  const visibleCount = visibleFixed.length + visibleCustom.length;
+  const visibleCount = visibleFixed.length + visibleCustom.length + 1; // +1 for delete col
 
   const allColumnsForMenu = [
     ...FIXED_COLUMNS,
@@ -275,10 +302,24 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
               onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }}
               className="text-sm text-gray-500 hover:text-brand-dark px-2"
             >
-              Réinitialiser
+              ✕
             </button>
           )}
         </form>
+
+        {/* Filter: CONTACTER */}
+        <div className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm text-brand-dark">
+          <span className="text-gray-500">Filtre :</span>
+          <select
+            value={filterToContact}
+            onChange={(e) => { setFilterToContact(e.target.value as "" | "true" | "false"); setPage(1); }}
+            className="text-sm text-brand-dark focus:outline-none bg-transparent cursor-pointer"
+          >
+            <option value="">Toutes les offres</option>
+            <option value="true">À contacter ✓</option>
+            <option value="false">Non contactées</option>
+          </select>
+        </div>
 
         <div className="ml-auto flex items-center gap-3">
           <span className="text-sm text-gray-500">
@@ -348,19 +389,37 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
         >
           <thead>
             <tr className="bg-brand-dark border-b border-gray-800">
-              {visibleFixed.map((col) => (
-                <th
-                  key={col.key}
-                  style={{ width: getColWidth(col.key, col.defaultWidth), position: "relative" }}
-                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap select-none"
-                >
-                  {col.label}
-                  <div
-                    onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
-                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
-                  />
-                </th>
-              ))}
+              {/* delete placeholder col */}
+              <th style={{ width: 36, position: "relative" }} className="px-1 py-3" />
+              {visibleFixed.map((col) => {
+                const sortable = ["title", "company", "offerLocation", "source", "publishedAt", "receivedAt"].includes(col.key);
+                const active = sortBy === col.key;
+                return (
+                  <th
+                    key={col.key}
+                    style={{ width: getColWidth(col.key, col.defaultWidth), position: "relative" }}
+                    className="text-left px-3 py-3 font-medium text-white whitespace-nowrap select-none"
+                  >
+                    {sortable ? (
+                      <button
+                        onClick={() => handleSort(col.key)}
+                        className="flex items-center gap-1 hover:text-brand-pink transition-colors"
+                      >
+                        {col.label}
+                        <span className="text-xs opacity-60">
+                          {active ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+                        </span>
+                      </button>
+                    ) : (
+                      col.label
+                    )}
+                    <div
+                      onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
+                      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
+                    />
+                  </th>
+                );
+              })}
               {visibleCustom.map((field) => (
                 <th
                   key={field.id}
@@ -409,11 +468,22 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                   <tr
                     key={offer.id}
                     className={cn(
-                      "border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer",
+                      "group border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer",
                       offer.toContact && "bg-[#26B743]/10"
                     )}
                     onClick={() => setExpandedRow(expandedRow === offer.id ? null : offer.id)}
                   >
+                    {/* Delete button */}
+                    <td className="px-1 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => deleteOffer(offer.id)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs w-5 h-5 flex items-center justify-center rounded"
+                        title="Supprimer cette offre"
+                      >
+                        ✕
+                      </button>
+                    </td>
+
                     {/* Title */}
                     {!hiddenColumns.has("title") && (
                       <td className="px-3 py-3" style={{ maxWidth: getColWidth("title", 220) }}>
@@ -629,6 +699,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
             setCustomFields((prev) => [...prev, field]);
             setShowAddField(false);
           }}
+          existingCustomFields={customFields.map((f) => ({ name: f.name, label: f.label }))}
         />
       )}
     </div>

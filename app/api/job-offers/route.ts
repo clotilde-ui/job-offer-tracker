@@ -32,10 +32,24 @@ export async function GET(req: NextRequest) {
       : {}),
   };
 
+  const rawSortBy = searchParams.get("sortBy") ?? "receivedAt";
+  const rawSortDir = searchParams.get("sortDir") ?? "desc";
+  const filterToContact = searchParams.get("filterToContact");
+
+  const SORTABLE = ["receivedAt", "publishedAt", "title", "company", "offerLocation", "source"];
+  const sortBy = SORTABLE.includes(rawSortBy) ? rawSortBy : "receivedAt";
+  const sortDir = rawSortDir === "asc" ? "asc" : "desc";
+
+  if (filterToContact === "true") {
+    Object.assign(where, { toContact: true });
+  } else if (filterToContact === "false") {
+    Object.assign(where, { toContact: false });
+  }
+
   const [rawData, total] = await Promise.all([
     prisma.jobOffer.findMany({
       where,
-      orderBy: { receivedAt: "desc" },
+      orderBy: { [sortBy]: sortDir },
       skip: (page - 1) * limit,
       take: limit,
     }),

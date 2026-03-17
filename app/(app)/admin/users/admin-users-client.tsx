@@ -47,6 +47,23 @@ export function AdminUsersClient() {
     if (res.ok) setUsers((prev) => prev.filter((u) => u.id !== id));
   }
 
+  async function changeWorkspace(userId: string, workspaceId: string) {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceId }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "Erreur lors de l'assignation workspace");
+      return;
+    }
+
+    const updated = await res.json();
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -80,7 +97,17 @@ export function AdminUsersClient() {
                   <td className="px-4 py-3 font-medium text-brand-dark">{user.name}</td>
                   <td className="px-4 py-3 text-gray-600">{user.email}</td>
                   <td className="px-4 py-3">{user.role}</td>
-                  <td className="px-4 py-3 text-gray-600">{user.workspace?.name ?? "Tous (ADMIN)"}</td>
+                  <td className="px-4 py-3 text-gray-600">{user.role === "ADMIN" ? "Tous (ADMIN)" : (
+                      <select
+                        value={user.workspaceId ?? ""}
+                        onChange={(e) => { void changeWorkspace(user.id, e.target.value); }}
+                        className="border border-gray-300 px-2 py-1 text-xs"
+                      >
+                        {workspaces.map((w) => (
+                          <option key={w.id} value={w.id}>{w.name}</option>
+                        ))}
+                      </select>
+                    )}</td>
                   <td className="px-4 py-3 text-gray-500">{new Date(user.createdAt).toLocaleDateString("fr-FR")}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 justify-end">

@@ -17,6 +17,7 @@ export function Navbar({ user }: NavbarProps) {
     ...(user.role === "ADMIN"
       ? [
           { href: "/settings", label: "Paramètres" },
+          { href: "/admin/workspaces", label: "Workspaces" },
           { href: "/admin/users", label: "Utilisateurs" },
         ]
       : []),

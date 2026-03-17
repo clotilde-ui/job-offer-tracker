@@ -25,14 +25,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (role) data.role = role;
   if (workspaceId !== undefined) data.workspaceId = workspaceId;
 
-  const nextRole = role;
+  const current = await prisma.user.findUnique({ where: { id }, select: { role: true, workspaceId: true } });
+  if (!current) return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+
+  const nextRole = role ?? current.role;
+  const nextWorkspaceId = workspaceId !== undefined ? workspaceId : current.workspaceId;
+
   if (nextRole === "ADMIN") {
     data.workspaceId = null;
-  } else if (nextRole === "USER" && workspaceId === undefined) {
-    const current = await prisma.user.findUnique({ where: { id }, select: { workspaceId: true } });
-    if (!current?.workspaceId) {
+  } else {
+    if (!nextWorkspaceId) {
       return NextResponse.json({ error: "workspaceId requis pour un USER" }, { status: 400 });
     }
+    const workspace = await prisma.workspace.findUnique({ where: { id: String(nextWorkspaceId) }, select: { id: true } });
+    if (!workspace) return NextResponse.json({ error: "Workspace introuvable" }, { status: 404 });
   }
 
   const user = await prisma.user.update({

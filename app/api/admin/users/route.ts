@@ -42,13 +42,15 @@ export async function POST(req: NextRequest) {
   if (!email || !name || !password) return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
 
   const normalizedRole = role === "ADMIN" ? "ADMIN" : "USER";
-  let targetWorkspaceId = workspaceId as string | null;
+  const targetWorkspaceId = workspaceId as string | null;
+
   if (normalizedRole !== "ADMIN" && !targetWorkspaceId) {
-    const createdWorkspace = await prisma.workspace.create({
-      data: { name: `${name}-${Date.now()}` },
-      select: { id: true },
-    });
-    targetWorkspaceId = createdWorkspace.id;
+    return NextResponse.json({ error: "workspaceId requis pour un USER" }, { status: 400 });
+  }
+
+  if (targetWorkspaceId) {
+    const workspace = await prisma.workspace.findUnique({ where: { id: targetWorkspaceId }, select: { id: true } });
+    if (!workspace) return NextResponse.json({ error: "Workspace introuvable" }, { status: 404 });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });

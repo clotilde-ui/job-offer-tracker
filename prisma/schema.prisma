@@ -119,9 +119,11 @@ model CustomFieldDef {
   userId    String
   name      String
   label     String
-  type      String   @default("TEXT")
-  formula   String?
-  order     Int      @default(0)
+  type         String   @default("TEXT")
+  formula      String?
+  lgmAttribute String?
+  autoFill     Boolean  @default(false)
+  order        Int      @default(0)
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

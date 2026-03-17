@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 const ALLOWED_TYPES = ["TEXT", "NUMBER", "BOOLEAN", "DATE", "FORMULA", "AI"] as const;
 type FieldType = (typeof ALLOWED_TYPES)[number];
 
+const LGM_ATTRIBUTES = Array.from({ length: 10 }, (_, i) => `customAttribute${i + 1}`);
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
-  const { label, type, formula } = await req.json();
+  const { label, type, formula, lgmAttribute, autoFill } = await req.json();
 
   if (!label || typeof label !== "string" || label.trim() === "") {
     return NextResponse.json({ error: "Label requis" }, { status: 400 });
@@ -37,6 +39,10 @@ export async function POST(req: NextRequest) {
       { error: fieldType === "FORMULA" ? "Formule requise" : "Prompt IA requis" },
       { status: 400 }
     );
+  }
+
+  if (lgmAttribute && !LGM_ATTRIBUTES.includes(lgmAttribute)) {
+    return NextResponse.json({ error: "Attribut LGM invalide" }, { status: 400 });
   }
 
   const name = label
@@ -62,6 +68,8 @@ export async function POST(req: NextRequest) {
       label,
       type: fieldType,
       formula: formula ?? null,
+      lgmAttribute: lgmAttribute ?? null,
+      autoFill: autoFill === true,
       order: count,
     },
   });

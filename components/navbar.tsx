@@ -26,7 +26,7 @@ export function Navbar({ user }: NavbarProps) {
   return (
     <header className="bg-brand-dark px-6 py-3 flex items-center justify-between">
       <nav className="flex items-center gap-6">
-        <span className="font-semibold text-brand-pink mr-4">Offres Emploi</span>
+        <span className="font-semibold text-brand-pink mr-4">Job Offer Tracker</span>
         {links.map((link) => (
           <Link
             key={link.href}

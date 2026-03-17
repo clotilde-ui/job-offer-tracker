@@ -39,6 +39,8 @@ interface JobOffer {
   doNotContact: boolean;
   lgmSent: boolean;
   lgmAudience: string | null;
+  phoneLookupRequested: boolean;
+  enrichedPhone: string | null;
   customValues: Record<string, unknown>;
 }
 
@@ -51,7 +53,7 @@ interface Stats {
 
 interface OffersTableProps {
   customFields: CustomField[];
-  targetUserId?: string;
+  targetWorkspaceId?: string;
   lgmAudiences: string[];
 }
 
@@ -64,6 +66,8 @@ const FIXED_COLUMNS = [
   { key: "leadName", label: "Lead", defaultWidth: 150 },
   { key: "leadEmail", label: "Email lead", defaultWidth: 180 },
   { key: "leadJobTitle", label: "Métier lead", defaultWidth: 140 },
+  { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
+  { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
   { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
 ];
 
@@ -80,7 +84,7 @@ function evalFormula(formula: string, offer: JobOffer): string {
   });
 }
 
-export function OffersTable({ customFields: initialCustomFields, targetUserId, lgmAudiences }: OffersTableProps) {
+export function OffersTable({ customFields: initialCustomFields, targetWorkspaceId, lgmAudiences }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -145,7 +149,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
         sortDir,
         ...(search ? { search } : {}),
         ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
-        ...(targetUserId ? { targetUserId } : {}),
+        ...(targetWorkspaceId ? { targetWorkspaceId } : {}),
       });
       const res = await fetch(`/api/job-offers?${params}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -159,7 +163,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
     } finally {
       setLoading(false);
     }
-  }, [page, search, sortBy, sortDir, filterStatuses, targetUserId]);
+  }, [page, search, sortBy, sortDir, filterStatuses, targetWorkspaceId]);
 
   useEffect(() => {
     fetchOffers();
@@ -248,6 +252,33 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
     }
   }
 
+  async function updatePhoneEnrichment(offerId: string, payload: { phoneLookupRequested?: boolean; enrichedPhone?: string | null }) {
+    const res = await fetch(`/api/job-offers/${offerId}/phone-enrichment`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) return;
+
+    const updated = await res.json();
+    setOffers((prev) =>
+      prev.map((o) =>
+        o.id === offerId
+          ? {
+              ...o,
+              phoneLookupRequested:
+                typeof updated.phoneLookupRequested === "boolean"
+                  ? updated.phoneLookupRequested
+                  : o.phoneLookupRequested,
+              enrichedPhone:
+                updated.enrichedPhone !== undefined ? updated.enrichedPhone : o.enrichedPhone,
+            }
+          : o
+      )
+    );
+  }
+
   async function deleteCustomField(fieldId: string) {
     if (!confirm("Supprimer ce champ ? Les données associées seront perdues.")) return;
     const res = await fetch(`/api/custom-fields/${fieldId}`, { method: "DELETE" });
@@ -270,7 +301,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
       sortDir,
       ...(search ? { search } : {}),
       ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
-      ...(targetUserId ? { targetUserId } : {}),
+      ...(targetWorkspaceId ? { targetWorkspaceId } : {}),
     });
     window.open(`/api/job-offers?${params}`, "_blank");
   }
@@ -696,6 +727,36 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
                       </td>
                     )}
 
+                    {/* phoneLookupRequested */}
+                    {!hiddenColumns.has("phoneLookupRequested") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={offer.phoneLookupRequested}
+                          onChange={(e) => {
+                            void updatePhoneEnrichment(offer.id, { phoneLookupRequested: e.target.checked });
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                          style={{ accentColor: "#FFBEFA" }}
+                        />
+                      </td>
+                    )}
+
+                    {/* enrichedPhone */}
+                    {!hiddenColumns.has("enrichedPhone") && (
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          defaultValue={offer.enrichedPhone ?? ""}
+                          placeholder="Numéro enrichi"
+                          onBlur={(e) => {
+                            void updatePhoneEnrichment(offer.id, { enrichedPhone: e.target.value || null });
+                          }}
+                          className="border border-gray-300 px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
+                        />
+                      </td>
+                    )}
+
                     {/* toContact — audience dropdown */}
                     {!hiddenColumns.has("toContact") && (
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
@@ -777,6 +838,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
 
       {showAddField && (
         <AddCustomFieldModal
+          workspaceId={targetWorkspaceId}
           onClose={() => setShowAddField(false)}
           onCreated={(field) => {
             setCustomFields((prev) => [...prev, field]);

@@ -34,7 +34,6 @@ async function main() {
       },
     });
     console.log("Admin créé :", admin.email);
-    console.log("Webhook token :", admin.webhookToken);
   } else {
     console.log("Admin déjà existant.");
   }

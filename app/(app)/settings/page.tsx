@@ -8,14 +8,12 @@ import { SettingsForm } from "./settings-form";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
+  if (session?.user.role !== "ADMIN") redirect("/dashboard");
 
-  if (role !== "ADMIN") redirect("/dashboard");
-
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true },
+  const workspaces = await prisma.workspace.findMany({
+    select: { id: true, name: true },
     orderBy: { createdAt: "asc" },
   });
 
-  return <SettingsForm users={users} />;
+  return <SettingsForm workspaces={workspaces} />;
 }

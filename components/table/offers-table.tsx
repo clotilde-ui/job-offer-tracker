@@ -800,7 +800,7 @@ function AudienceDropdownCell({
     : offer.toContact && offer.lgmAudience
     ? offer.lgmAudience
     : offer.toContact
-    ? "__contacted__"
+    ? "__contact__"
     : "qualify";
 
   function handleChange(val: string) {
@@ -808,6 +808,8 @@ function AudienceDropdownCell({
       onSet(offer.id, "qualify");
     } else if (val === "doNotContact") {
       onSet(offer.id, "doNotContact");
+    } else if (val === "__contact__") {
+      onSet(offer.id, "contact");
     } else {
       onSet(offer.id, "contact", val);
     }
@@ -829,6 +831,7 @@ function AudienceDropdownCell({
       >
         <option value="qualify">— À qualifier</option>
         <option value="doNotContact">✗ Ne pas contacter</option>
+        <option value="__contact__">✓ Contacter</option>
         {lgmAudiences.length > 0 && (
           <optgroup label="Envoyer vers LGM">
             {lgmAudiences.map((name) => (
@@ -838,12 +841,9 @@ function AudienceDropdownCell({
             ))}
           </optgroup>
         )}
-        {/* Fallback if contacted but audience no longer exists */}
+        {/* Fallback if contacted with an audience no longer in the list */}
         {offer.toContact && offer.lgmAudience && !lgmAudiences.includes(offer.lgmAudience) && (
           <option value={offer.lgmAudience}>{offer.lgmAudience}</option>
-        )}
-        {offer.toContact && !offer.lgmAudience && (
-          <option value="__contacted__">✓ Contacté</option>
         )}
       </select>
       {offer.lgmSent && (

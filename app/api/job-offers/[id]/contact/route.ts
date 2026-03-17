@@ -41,7 +41,15 @@ export async function PATCH(
       }),
     ]);
 
-    const targetAudience = audience ?? user?.lgmCampaignId;
+    // Resolve target audience: explicit > lgmAudiences[0] > legacy lgmCampaignId
+    let targetAudience = audience ?? null;
+    if (!targetAudience && user?.lgmAudiences) {
+      try {
+        const audiences: string[] = JSON.parse(user.lgmAudiences);
+        if (audiences.length > 0) targetAudience = audiences[0];
+      } catch { /* empty */ }
+    }
+    if (!targetAudience) targetAudience = user?.lgmCampaignId ?? null;
 
     if (user?.lgmApiKey && targetAudience) {
       try {

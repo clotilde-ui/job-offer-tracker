@@ -10,7 +10,16 @@ export async function GET() {
   const userId = (session.user as { id: string }).id;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { webhookToken: true, lgmApiKey: true, lgmCampaignId: true },
+    select: {
+      webhookToken: true,
+      lgmApiKey: true,
+      lgmCampaignId: true,
+      aiProvider: true,
+      claudeApiKey: true,
+      geminiApiKey: true,
+      groqApiKey: true,
+      openaiApiKey: true,
+    },
   });
 
   return NextResponse.json(user);
@@ -21,12 +30,36 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
-  const { lgmApiKey, lgmCampaignId } = await req.json();
+  const {
+    lgmApiKey,
+    lgmCampaignId,
+    aiProvider,
+    claudeApiKey,
+    geminiApiKey,
+    groqApiKey,
+    openaiApiKey,
+  } = await req.json();
 
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { lgmApiKey, lgmCampaignId },
-    select: { lgmApiKey: true, lgmCampaignId: true },
+    data: {
+      lgmApiKey,
+      lgmCampaignId,
+      aiProvider,
+      claudeApiKey,
+      geminiApiKey,
+      groqApiKey,
+      openaiApiKey,
+    },
+    select: {
+      lgmApiKey: true,
+      lgmCampaignId: true,
+      aiProvider: true,
+      claudeApiKey: true,
+      geminiApiKey: true,
+      groqApiKey: true,
+      openaiApiKey: true,
+    },
   });
 
   return NextResponse.json(user);

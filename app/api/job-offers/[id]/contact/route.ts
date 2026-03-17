@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+type ContactStatus = "qualify" | "contact" | "doNotContact";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -10,26 +12,27 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const userId = (session.user as { id: string }).id;
+  const userId = session.user.id;
   const { id } = await params;
-  const { toContact } = await req.json();
+  const { status }: { status: ContactStatus } = await req.json();
 
-  const offer = await prisma.jobOffer.findFirst({
-    where: { id, userId },
-  });
+  if (!["qualify", "contact", "doNotContact"].includes(status)) {
+    return NextResponse.json({ error: "Statut invalide" }, { status: 400 });
+  }
 
+  const offer = await prisma.jobOffer.findFirst({ where: { id, userId } });
   if (!offer) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  const updated = await prisma.jobOffer.update({
-    where: { id },
-    data: {
-      toContact,
-      contactedAt: toContact ? new Date() : null,
-    },
-  });
+  const data = {
+    toContact: status === "contact",
+    doNotContact: status === "doNotContact",
+    contactedAt: status === "contact" ? new Date() : null,
+  };
 
-  // Si coché → envoyer vers LGM
-  if (toContact && !offer.lgmSent) {
+  const updated = await prisma.jobOffer.update({ where: { id }, data });
+
+  // Envoyer vers LGM uniquement lors du passage à "contact"
+  if (status === "contact" && !offer.lgmSent) {
     const [user, customFields] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),
       prisma.customFieldDef.findMany({
@@ -50,7 +53,6 @@ export async function PATCH(
         if (offer.company) body.set("companyName", offer.company);
         if (offer.website) body.set("companyUrl", offer.website);
 
-        // Champs personnalisés mappés vers les custom attributes LGM
         if (customFields.length > 0) {
           const customValues = JSON.parse(offer.customValues || "{}");
           for (const field of customFields) {

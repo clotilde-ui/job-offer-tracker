@@ -166,26 +166,44 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId, l
   }, [fetchOffers]);
 
   async function setContactStatus(id: string, status: "qualify" | "contact" | "doNotContact", audience?: string) {
+    const prevOffer = offers.find((o) => o.id === id);
+    if (!prevOffer) return;
+
+    const prevStatus = prevOffer.doNotContact ? "doNotContact" : prevOffer.toContact ? "contact" : "qualify";
+
+    // Update optimiste immédiat
+    setOffers((prev) =>
+      prev.map((o) =>
+        o.id === id
+          ? {
+              ...o,
+              toContact: status === "contact",
+              doNotContact: status === "doNotContact",
+              lgmAudience: status === "contact" ? (audience ?? null) : null,
+            }
+          : o
+      )
+    );
+    if (stats && prevStatus !== status) {
+      setStats({
+        ...stats,
+        toContact: stats.toContact + (status === "contact" ? 1 : 0) - (prevStatus === "contact" ? 1 : 0),
+        doNotContact: stats.doNotContact + (status === "doNotContact" ? 1 : 0) - (prevStatus === "doNotContact" ? 1 : 0),
+        qualify: stats.qualify + (status === "qualify" ? 1 : 0) - (prevStatus === "qualify" ? 1 : 0),
+      });
+    }
+
+    // Appel API en arrière-plan
     const res = await fetch(`/api/job-offers/${id}/contact`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, audience }),
     });
-    if (res.ok) {
-      setOffers((prev) =>
-        prev.map((o) =>
-          o.id === id
-            ? {
-                ...o,
-                toContact: status === "contact",
-                doNotContact: status === "doNotContact",
-                lgmAudience: status === "contact" ? (audience ?? null) : null,
-              }
-            : o
-        )
-      );
-      // Refresh stats
-      fetchOffers();
+
+    // Revert si erreur
+    if (!res.ok) {
+      setOffers((prev) => prev.map((o) => (o.id === id ? prevOffer : o)));
+      if (stats) setStats(stats);
     }
   }
 

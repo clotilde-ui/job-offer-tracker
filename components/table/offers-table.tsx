@@ -36,6 +36,7 @@ interface JobOffer {
   leadLinkedin: string | null;
   leadPhone: string | null;
   toContact: boolean;
+  doNotContact: boolean;
   lgmSent: boolean;
   customValues: Record<string, unknown>;
 }
@@ -85,7 +86,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
   // Sort & filter
   const [sortBy, setSortBy] = useState("receivedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [filterToContact, setFilterToContact] = useState<"" | "true" | "false">("");
+  const [filterStatuses, setFilterStatuses] = useState<Set<string>>(new Set());
 
   // Column visibility & widths — loaded from localStorage on mount
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
@@ -133,7 +134,7 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
         sortBy,
         sortDir,
         ...(search ? { search } : {}),
-        ...(filterToContact ? { filterToContact } : {}),
+        ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
         ...(targetUserId ? { targetUserId } : {}),
       });
       const res = await fetch(`/api/job-offers?${params}`);
@@ -147,20 +148,30 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
     } finally {
       setLoading(false);
     }
-  }, [page, search, sortBy, sortDir, filterToContact, targetUserId]);
+  }, [page, search, sortBy, sortDir, filterStatuses, targetUserId]);
 
   useEffect(() => {
     fetchOffers();
   }, [fetchOffers]);
 
-  async function toggleContact(id: string, current: boolean) {
+  async function setContactStatus(id: string, status: "qualify" | "contact" | "doNotContact") {
     const res = await fetch(`/api/job-offers/${id}/contact`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toContact: !current }),
+      body: JSON.stringify({ status }),
     });
     if (res.ok) {
-      setOffers((prev) => prev.map((o) => (o.id === id ? { ...o, toContact: !current } : o)));
+      setOffers((prev) =>
+        prev.map((o) =>
+          o.id === id
+            ? {
+                ...o,
+                toContact: status === "contact",
+                doNotContact: status === "doNotContact",
+              }
+            : o
+        )
+      );
     }
   }
 
@@ -309,18 +320,32 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
           )}
         </form>
 
-        {/* Filter: CONTACTER */}
-        <div className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm text-brand-dark">
-          <span className="text-gray-500">Filtre :</span>
-          <select
-            value={filterToContact}
-            onChange={(e) => { setFilterToContact(e.target.value as "" | "true" | "false"); setPage(1); }}
-            className="text-sm text-brand-dark focus:outline-none bg-transparent cursor-pointer"
-          >
-            <option value="">Toutes les offres</option>
-            <option value="true">À contacter ✓</option>
-            <option value="false">Non contactées</option>
-          </select>
+        {/* Filter: multi-select statuses */}
+        <div className="flex items-center gap-3 border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm text-brand-dark">
+          <span className="text-gray-500 shrink-0">Filtre :</span>
+          {[
+            { key: "qualify", label: "À qualifier" },
+            { key: "contact", label: "Contacté" },
+            { key: "doNotContact", label: "Ne pas contacter" },
+          ].map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={filterStatuses.has(key)}
+                onChange={() => {
+                  setFilterStatuses((prev) => {
+                    const next = new Set(prev);
+                    next.has(key) ? next.delete(key) : next.add(key);
+                    return next;
+                  });
+                  setPage(1);
+                }}
+                style={{ accentColor: "#FFBEFA" }}
+                className="w-3.5 h-3.5"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
         </div>
 
         <div className="ml-auto flex items-center gap-3">
@@ -471,7 +496,8 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
                     key={offer.id}
                     className={cn(
                       "group border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer",
-                      offer.toContact && "bg-[#26B743]/10"
+                      offer.toContact && "bg-[#26B743]/10",
+                      offer.doNotContact && "bg-red-50"
                     )}
                     onClick={() => setExpandedRow(expandedRow === offer.id ? null : offer.id)}
                   >
@@ -611,18 +637,10 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
                     {/* toContact */}
                     {!hiddenColumns.has("toContact") && (
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={offer.toContact}
-                            onChange={() => toggleContact(offer.id, offer.toContact)}
-                            className="w-4 h-4 cursor-pointer"
-                            style={{ accentColor: "#FFBEFA" }}
-                          />
-                          {offer.lgmSent && (
-                            <span className="text-xs text-brand-green font-medium">LGM ✓</span>
-                          )}
-                        </div>
+                        <ContactStatusCell
+                          offer={offer}
+                          onSet={(status) => setContactStatus(offer.id, status)}
+                        />
                       </td>
                     )}
 
@@ -703,6 +721,46 @@ export function OffersTable({ customFields: initialCustomFields, targetUserId }:
           }}
           existingCustomFields={customFields.map((f) => ({ name: f.name, label: f.label }))}
         />
+      )}
+    </div>
+  );
+}
+
+function ContactStatusCell({
+  offer,
+  onSet,
+}: {
+  offer: JobOffer;
+  onSet: (status: "qualify" | "contact" | "doNotContact") => void;
+}) {
+  const current = offer.toContact ? "contact" : offer.doNotContact ? "doNotContact" : "qualify";
+
+  const options: { key: "qualify" | "contact" | "doNotContact"; label: string; activeClass: string }[] = [
+    { key: "qualify", label: "?", activeClass: "bg-gray-200 text-gray-700" },
+    { key: "contact", label: "✓", activeClass: "bg-brand-green text-white" },
+    { key: "doNotContact", label: "✗", activeClass: "bg-red-400 text-white" },
+  ];
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex rounded-md overflow-hidden border border-gray-200">
+        {options.map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            title={opt.key === "qualify" ? "À qualifier" : opt.key === "contact" ? "Contacté" : "Ne pas contacter"}
+            onClick={() => onSet(opt.key === current ? "qualify" : opt.key)}
+            className={cn(
+              "px-2 py-1 text-xs font-medium transition-colors",
+              current === opt.key ? opt.activeClass : "bg-white text-gray-400 hover:bg-gray-50"
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {offer.lgmSent && (
+        <span className="text-xs text-brand-green font-medium ml-1">LGM ✓</span>
       )}
     </div>
   );

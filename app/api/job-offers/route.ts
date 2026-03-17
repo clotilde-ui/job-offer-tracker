@@ -38,16 +38,28 @@ export async function GET(req: NextRequest) {
 
   const rawSortBy = searchParams.get("sortBy") ?? "receivedAt";
   const rawSortDir = searchParams.get("sortDir") ?? "desc";
-  const filterToContact = searchParams.get("filterToContact");
+  // filterStatus is comma-separated: "qualify,contact,doNotContact"
+  const filterStatus = searchParams.get("filterStatus");
+  const activeStatuses = filterStatus ? filterStatus.split(",") : [];
 
   const SORTABLE = ["receivedAt", "publishedAt", "title", "company", "offerLocation", "source"];
   const sortBy = SORTABLE.includes(rawSortBy) ? rawSortBy : "receivedAt";
   const sortDir = rawSortDir === "asc" ? "asc" : "desc";
 
-  if (filterToContact === "true") {
-    Object.assign(where, { toContact: true });
-  } else if (filterToContact === "false") {
-    Object.assign(where, { toContact: false });
+  if (activeStatuses.length > 0) {
+    const orClauses: Record<string, unknown>[] = [];
+    if (activeStatuses.includes("qualify")) {
+      orClauses.push({ toContact: false, doNotContact: false });
+    }
+    if (activeStatuses.includes("contact")) {
+      orClauses.push({ toContact: true });
+    }
+    if (activeStatuses.includes("doNotContact")) {
+      orClauses.push({ doNotContact: true });
+    }
+    if (orClauses.length > 0) {
+      Object.assign(where, { OR: orClauses });
+    }
   }
 
   const [rawData, total] = await Promise.all([

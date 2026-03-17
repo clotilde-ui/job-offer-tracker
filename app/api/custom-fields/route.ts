@@ -3,14 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const ALLOWED_TYPES = ["TEXT", "NUMBER", "BOOLEAN", "DATE"] as const;
+const ALLOWED_TYPES = ["TEXT", "NUMBER", "BOOLEAN", "DATE", "FORMULA", "AI"] as const;
 type FieldType = (typeof ALLOWED_TYPES)[number];
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const userId = session.user.id;
+  const userId = (session.user as { id: string }).id;
   const fields = await prisma.customFieldDef.findMany({
     where: { userId },
     orderBy: { order: "asc" },
@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const userId = session.user.id;
-  const { label, type } = await req.json();
+  const userId = (session.user as { id: string }).id;
+  const { label, type, formula } = await req.json();
 
   if (!label || typeof label !== "string" || label.trim() === "") {
     return NextResponse.json({ error: "Label requis" }, { status: 400 });
@@ -32,13 +32,19 @@ export async function POST(req: NextRequest) {
 
   const fieldType: FieldType = ALLOWED_TYPES.includes(type) ? type : "TEXT";
 
+  if ((fieldType === "FORMULA" || fieldType === "AI") && !formula) {
+    return NextResponse.json(
+      { error: fieldType === "FORMULA" ? "Formule requise" : "Prompt IA requis" },
+      { status: 400 }
+    );
+  }
+
   const name = label
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "_");
 
-  // Vérifie les collisions de nom pour cet utilisateur
   const existing = await prisma.customFieldDef.findFirst({ where: { userId, name } });
   if (existing) {
     return NextResponse.json(
@@ -50,7 +56,14 @@ export async function POST(req: NextRequest) {
   const count = await prisma.customFieldDef.count({ where: { userId } });
 
   const field = await prisma.customFieldDef.create({
-    data: { userId, name, label, type: fieldType, order: count },
+    data: {
+      userId,
+      name,
+      label,
+      type: fieldType,
+      formula: formula ?? null,
+      order: count,
+    },
   });
 
   return NextResponse.json(field, { status: 201 });

@@ -145,11 +145,11 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Rechercher offre, entreprise, lead..."
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 text-brand-dark bg-white focus:outline-none focus:ring-2 focus:ring-brand-pink"
           />
           <button
             type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+            className="bg-brand-pink text-brand-dark px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Rechercher
           </button>
@@ -157,7 +157,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
             <button
               type="button"
               onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }}
-              className="text-sm text-gray-500 hover:text-gray-900 px-2"
+              className="text-sm text-gray-500 hover:text-brand-dark px-2"
             >
               Réinitialiser
             </button>
@@ -170,7 +170,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
           </span>
           <button
             onClick={() => setShowAddField(true)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 flex items-center gap-1"
+            className="text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
           >
             + Champ personnalisé
           </button>
@@ -181,11 +181,11 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
+            <tr className="bg-brand-dark border-b border-gray-200">
               {fixedColumns.map((col) => (
                 <th
                   key={col.key}
-                  className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap"
+                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap"
                 >
                   {col.label}
                 </th>
@@ -193,13 +193,13 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
               {customFields.map((field) => (
                 <th
                   key={field.id}
-                  className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap"
+                  className="text-left px-3 py-3 font-medium text-white whitespace-nowrap"
                 >
                   <span className="flex items-center gap-1">
                     {field.label}
                     <button
                       onClick={() => deleteCustomField(field.id)}
-                      className="text-gray-300 hover:text-red-500 ml-1 text-xs"
+                      className="text-white/40 hover:text-red-400 ml-1 text-xs"
                       title="Supprimer ce champ"
                     >
                       ✕
@@ -235,7 +235,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                     key={offer.id}
                     className={cn(
                       "border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer",
-                      offer.toContact && "bg-green-50"
+                      offer.toContact && "bg-[#26B743]/10"
                     )}
                     onClick={() =>
                       setExpandedRow(expandedRow === offer.id ? null : offer.id)
@@ -243,7 +243,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                   >
                     {/* Offre */}
                     <td className="px-3 py-3 max-w-[220px]">
-                      <div className="font-medium text-gray-900 truncate">
+                      <div className="font-medium text-brand-dark truncate">
                         {offer.title}
                       </div>
                       {offer.url && (
@@ -252,16 +252,16 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs text-blue-500 hover:underline"
+                          className="text-xs text-brand-dark underline hover:text-brand-pink"
                         >
-                          Voir l'offre
+                          Voir l&apos;offre
                         </a>
                       )}
                     </td>
 
                     {/* Entreprise */}
                     <td className="px-3 py-3 max-w-[180px]">
-                      <div className="font-medium truncate">{offer.company}</div>
+                      <div className="font-medium truncate text-brand-dark">{offer.company}</div>
                       <div className="flex gap-2 mt-0.5">
                         {offer.linkedinPage && (
                           <a
@@ -269,7 +269,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="text-xs text-blue-500 hover:underline"
+                            className="text-xs text-brand-dark underline hover:text-brand-pink"
                           >
                             LinkedIn
                           </a>
@@ -280,7 +280,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="text-xs text-blue-500 hover:underline"
+                            className="text-xs text-brand-dark underline hover:text-brand-pink"
                           >
                             Site
                           </a>
@@ -309,7 +309,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                     <td className="px-3 py-3 max-w-[160px]">
                       {offer.leadFirstName || offer.leadLastName ? (
                         <div>
-                          <div className="font-medium truncate">
+                          <div className="font-medium truncate text-brand-dark">
                             {[offer.leadCivility, offer.leadFirstName, offer.leadLastName]
                               .filter(Boolean)
                               .join(" ")}
@@ -320,7 +320,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="text-xs text-blue-500 hover:underline"
+                              className="text-xs text-brand-dark underline hover:text-brand-pink"
                             >
                               LinkedIn
                             </a>
@@ -337,7 +337,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                         <a
                           href={`mailto:${offer.leadEmail}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="hover:underline"
+                          className="hover:underline hover:text-brand-pink"
                         >
                           {offer.leadEmail}
                         </a>
@@ -358,10 +358,11 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                           type="checkbox"
                           checked={offer.toContact}
                           onChange={() => toggleContact(offer.id, offer.toContact)}
-                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                          className="w-4 h-4 cursor-pointer"
+                          style={{ accentColor: "#FFBEFA" }}
                         />
                         {offer.lgmSent && (
-                          <span className="text-xs text-green-600 font-medium">
+                          <span className="text-xs text-brand-green font-medium">
                             LGM ✓
                           </span>
                         )}
@@ -388,7 +389,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
 
                   {/* Ligne étendue — détails */}
                   {expandedRow === offer.id && (
-                    <tr key={`${offer.id}-expanded`} className="bg-blue-50 border-b border-gray-200">
+                    <tr key={`${offer.id}-expanded`} className="bg-[#FFBEFA]/10 border-b border-gray-200">
                       <td
                         colSpan={fixedColumns.length + customFields.length}
                         className="px-6 py-4"
@@ -396,7 +397,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
                           {offer.description && (
                             <div className="col-span-full">
-                              <span className="font-medium text-gray-700">Description : </span>
+                              <span className="font-medium text-brand-dark">Description : </span>
                               <p className="text-gray-600 mt-1 whitespace-pre-wrap">{offer.description}</p>
                             </div>
                           )}
@@ -421,7 +422,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-white text-brand-dark transition-colors"
           >
             ← Précédent
           </button>
@@ -431,7 +432,7 @@ export function OffersTable({ customFields: initialCustomFields }: OffersTablePr
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-white text-brand-dark transition-colors"
           >
             Suivant →
           </button>
@@ -456,7 +457,7 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
   if (!value) return null;
   return (
     <div>
-      <span className="font-medium text-gray-700">{label} : </span>
+      <span className="font-medium text-brand-dark">{label} : </span>
       <span className="text-gray-600">{value}</span>
     </div>
   );
@@ -477,7 +478,8 @@ function CustomFieldCell({
         type="checkbox"
         checked={Boolean(value)}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 accent-blue-600 cursor-pointer"
+        className="w-4 h-4 cursor-pointer"
+        style={{ accentColor: "#FFBEFA" }}
       />
     );
   }
@@ -488,7 +490,7 @@ function CustomFieldCell({
         type="number"
         defaultValue={value != null ? String(value) : ""}
         onBlur={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        className="border border-gray-300 rounded px-2 py-1 text-sm w-24 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
       />
     );
   }
@@ -498,7 +500,7 @@ function CustomFieldCell({
       type={field.type === "DATE" ? "date" : "text"}
       defaultValue={value != null ? String(value) : ""}
       onBlur={(e) => onChange(e.target.value || null)}
-      className="border border-gray-300 rounded px-2 py-1 text-sm w-32 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="border border-gray-300 rounded px-2 py-1 text-sm w-32 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
     />
   );
 }

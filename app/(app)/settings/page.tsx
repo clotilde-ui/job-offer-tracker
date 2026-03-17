@@ -53,23 +53,23 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Paramètres</h1>
+        <h1 className="text-2xl font-semibold text-brand-dark">Paramètres</h1>
         <p className="text-sm text-gray-500 mt-1">Webhook Mantiks et configuration LGM</p>
       </div>
 
       {/* Webhook */}
       <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Webhook Mantiks</h2>
+        <h2 className="font-semibold text-brand-dark">Webhook Mantiks</h2>
         <p className="text-sm text-gray-600">
           Configurez cette URL dans votre compte Mantiks pour recevoir les offres et leads.
         </p>
         <div className="flex gap-2">
-          <code className="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 overflow-x-auto">
+          <code className="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
             {webhookUrl}
           </code>
           <button
             onClick={copyWebhook}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap text-brand-dark"
           >
             {copied ? "Copié !" : "Copier"}
           </button>
@@ -78,14 +78,14 @@ export default function SettingsPage() {
 
       {/* LGM */}
       <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">La Growth Machine</h2>
+        <h2 className="font-semibold text-brand-dark">La Growth Machine</h2>
         <p className="text-sm text-gray-600">
           Quand vous cochez <strong>CONTACTER</strong>, le lead est automatiquement ajouté à votre campagne LGM.
         </p>
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-brand-dark mb-1">
               Clé API LGM
             </label>
             <input
@@ -93,12 +93,12 @@ export default function SettingsPage() {
               value={lgmApiKey}
               onChange={(e) => setLgmApiKey(e.target.value)}
               placeholder="Votre clé API La Growth Machine"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-brand-dark mb-1">
               Nom d&apos;audience LGM
             </label>
             <input
@@ -106,14 +106,14 @@ export default function SettingsPage() {
               value={lgmCampaignId}
               onChange={(e) => setLgmCampaignId(e.target.value)}
               placeholder="Nom exact de l'audience cible"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
 
           <button
             type="submit"
             disabled={saving}
-            className="bg-blue-600 text-white rounded-lg px-6 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            className="bg-brand-pink text-brand-dark rounded-lg px-6 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {saving ? "Sauvegarde..." : saved ? "Sauvegardé ✓" : "Sauvegarder"}
           </button>

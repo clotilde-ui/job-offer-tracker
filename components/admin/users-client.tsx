@@ -57,7 +57,7 @@ export function AdminUsersClient() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowCreate(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+          className="bg-brand-pink text-brand-dark px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
         >
           + Nouvel utilisateur
         </button>
@@ -66,26 +66,26 @@ export function AdminUsersClient() {
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Nom</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Rôle</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Offres</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">LGM</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Webhook</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Actions</th>
+            <tr className="bg-brand-dark border-b border-gray-200">
+              <th className="text-left px-4 py-3 font-medium text-white">Nom</th>
+              <th className="text-left px-4 py-3 font-medium text-white">Email</th>
+              <th className="text-left px-4 py-3 font-medium text-white">Rôle</th>
+              <th className="text-left px-4 py-3 font-medium text-white">Offres</th>
+              <th className="text-left px-4 py-3 font-medium text-white">LGM</th>
+              <th className="text-left px-4 py-3 font-medium text-white">Webhook</th>
+              <th className="text-left px-4 py-3 font-medium text-white">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
               <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{user.name}</td>
+                <td className="px-4 py-3 font-medium text-brand-dark">{user.name}</td>
                 <td className="px-4 py-3 text-gray-600">{user.email}</td>
                 <td className="px-4 py-3">
                   <span
                     className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                       user.role === "ADMIN"
-                        ? "bg-purple-100 text-purple-700"
+                        ? "bg-brand-pink text-brand-dark"
                         : "bg-gray-100 text-gray-600"
                     }`}
                   >
@@ -95,7 +95,7 @@ export function AdminUsersClient() {
                 <td className="px-4 py-3 text-gray-600">{user._count.jobOffers}</td>
                 <td className="px-4 py-3">
                   {user.lgmApiKey ? (
-                    <span className="text-green-600 text-xs">Configuré ✓</span>
+                    <span className="text-brand-green text-xs font-medium">Configuré ✓</span>
                   ) : (
                     <span className="text-gray-400 text-xs">Non configuré</span>
                   )}
@@ -103,7 +103,7 @@ export function AdminUsersClient() {
                 <td className="px-4 py-3">
                   <button
                     onClick={() => copyWebhook(user.webhookToken)}
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-brand-dark underline hover:text-brand-pink"
                   >
                     {copiedToken === user.webhookToken ? "Copié !" : "Copier URL"}
                   </button>
@@ -112,7 +112,7 @@ export function AdminUsersClient() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => setEditUser(user)}
-                      className="text-sm text-blue-600 hover:underline"
+                      className="text-sm text-brand-dark underline hover:text-brand-pink"
                     >
                       Modifier
                     </button>
@@ -215,7 +215,7 @@ function UserFormModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-lg font-semibold mb-4">
+        <h2 className="text-lg font-semibold mb-4 text-brand-dark">
           {mode === "create" ? "Créer un utilisateur" : "Modifier l'utilisateur"}
         </h2>
 
@@ -227,27 +227,27 @@ function UserFormModal({
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+            <label className="block text-sm font-medium text-brand-dark mb-1">Nom</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-brand-dark mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-brand-dark mb-1">
               Mot de passe {mode === "edit" && "(laisser vide = inchangé)"}
             </label>
             <input
@@ -255,40 +255,40 @@ function UserFormModal({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required={mode === "create"}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+            <label className="block text-sm font-medium text-brand-dark mb-1">Rôle</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             >
               <option value="USER">Utilisateur</option>
               <option value="ADMIN">Admin</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Clé API LGM</label>
+            <label className="block text-sm font-medium text-brand-dark mb-1">Clé API LGM</label>
             <input
               type="password"
               value={lgmApiKey}
               onChange={(e) => setLgmApiKey(e.target.value)}
               placeholder="Optionnel"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              ID campagne LGM
+            <label className="block text-sm font-medium text-brand-dark mb-1">
+              Nom d&apos;audience LGM
             </label>
             <input
               type="text"
               value={lgmCampaignId}
               onChange={(e) => setLgmCampaignId(e.target.value)}
               placeholder="Optionnel"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
             />
           </div>
 
@@ -296,14 +296,14 @@ function UserFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50"
+              className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-brand-dark hover:bg-gray-50"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 bg-brand-pink text-brand-dark rounded-lg py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {loading ? "..." : mode === "create" ? "Créer" : "Enregistrer"}
             </button>

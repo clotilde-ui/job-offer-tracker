@@ -5,14 +5,10 @@ import { prisma } from "@/lib/prisma";
 
 type ContactStatus = "qualify" | "contact" | "doNotContact";
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const userId = session.user.id;
   const { id } = await params;
   const { status, audience }: { status: ContactStatus; audience?: string } = await req.json();
 
@@ -20,38 +16,38 @@ export async function PATCH(
     return NextResponse.json({ error: "Statut invalide" }, { status: 400 });
   }
 
-  const offer = await prisma.jobOffer.findFirst({ where: { id, userId } });
+  const offer = await prisma.jobOffer.findUnique({ where: { id } });
   if (!offer) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+  if (session.user.role !== "ADMIN" && offer.workspaceId !== session.user.workspaceId) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
 
-  const data: Record<string, unknown> = {
-    toContact: status === "contact",
-    doNotContact: status === "doNotContact",
-    contactedAt: status === "contact" ? new Date() : null,
-    lgmAudience: status === "contact" ? (audience ?? null) : null,
-  };
+  const updated = await prisma.jobOffer.update({
+    where: { id },
+    data: {
+      toContact: status === "contact",
+      doNotContact: status === "doNotContact",
+      contactedAt: status === "contact" ? new Date() : null,
+      lgmAudience: status === "contact" ? (audience ?? null) : null,
+    },
+  });
 
-  const updated = await prisma.jobOffer.update({ where: { id }, data });
-
-  // Envoyer vers LGM uniquement lors du passage à "contact"
   if (status === "contact" && !offer.lgmSent) {
-    const [user, customFields] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.customFieldDef.findMany({
-        where: { userId, lgmAttribute: { not: null } },
-      }),
+    const [workspace, customFields] = await Promise.all([
+      prisma.workspace.findUnique({ where: { id: offer.workspaceId } }),
+      prisma.customFieldDef.findMany({ where: { workspaceId: offer.workspaceId, lgmAttribute: { not: null } } }),
     ]);
 
-    // Resolve target audience: explicit > lgmAudiences[0] > legacy lgmCampaignId
     let targetAudience = audience ?? null;
-    if (!targetAudience && user?.lgmAudiences) {
+    if (!targetAudience && workspace?.lgmAudiences) {
       try {
-        const audiences: string[] = JSON.parse(user.lgmAudiences);
+        const audiences: string[] = JSON.parse(workspace.lgmAudiences);
         if (audiences.length > 0) targetAudience = audiences[0];
-      } catch { /* empty */ }
+      } catch {}
     }
-    if (!targetAudience) targetAudience = user?.lgmCampaignId ?? null;
+    if (!targetAudience) targetAudience = workspace?.lgmCampaignId ?? null;
 
-    if (user?.lgmApiKey && targetAudience) {
+    if (workspace?.lgmApiKey && targetAudience) {
       try {
         const body = new URLSearchParams();
         body.set("audience", targetAudience);
@@ -68,27 +64,17 @@ export async function PATCH(
           const customValues = JSON.parse(offer.customValues || "{}");
           for (const field of customFields) {
             const val = customValues[field.name];
-            if (val != null && val !== "" && field.lgmAttribute) {
-              body.set(field.lgmAttribute, String(val));
-            }
+            if (val != null && val !== "" && field.lgmAttribute) body.set(field.lgmAttribute, String(val));
           }
         }
 
-        const res = await fetch(
-          `https://apiv2.lagrowthmachine.com/flow/leads?apikey=${encodeURIComponent(user.lgmApiKey)}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: body.toString(),
-          }
-        );
+        const res = await fetch(`https://apiv2.lagrowthmachine.com/flow/leads?apikey=${encodeURIComponent(workspace.lgmApiKey)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+        });
 
-        if (res.ok) {
-          await prisma.jobOffer.update({
-            where: { id },
-            data: { lgmSent: true },
-          });
-        }
+        if (res.ok) await prisma.jobOffer.update({ where: { id }, data: { lgmSent: true } });
       } catch (err) {
         console.error("Erreur LGM:", err);
       }

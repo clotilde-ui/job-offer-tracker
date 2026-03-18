@@ -39,14 +39,13 @@ const AI_PROVIDERS = [
 
 type ProviderId = (typeof AI_PROVIDERS)[number]["id"];
 
-interface User {
+interface Workspace {
   id: string;
   name: string;
-  email: string;
 }
 
-export function SettingsForm({ users }: { users: User[] }) {
-  const [selectedUserId, setSelectedUserId] = useState(users[0]?.id ?? "");
+export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspaces[0]?.id ?? "");
   const [webhookToken, setWebhookToken] = useState("");
   const [lgmApiKey, setLgmApiKey] = useState("");
   const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
@@ -64,9 +63,8 @@ export function SettingsForm({ users }: { users: User[] }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!selectedUserId) return;
-    setLoading(true);
-    fetch(`/api/settings?userId=${selectedUserId}`)
+    if (!selectedWorkspaceId) return;
+    fetch(`/api/settings?workspaceId=${selectedWorkspaceId}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Erreur ${r.status}`);
         return r.json();
@@ -95,12 +93,12 @@ export function SettingsForm({ users }: { users: User[] }) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [selectedUserId]);
+  }, [selectedWorkspaceId]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await fetch(`/api/settings?userId=${selectedUserId}`, {
+    await fetch(`/api/settings?workspaceId=${selectedWorkspaceId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -138,13 +136,13 @@ export function SettingsForm({ users }: { users: User[] }) {
 
   const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/webhook/${webhookToken}`;
 
-  const selectedUser = users.find((u) => u.id === selectedUserId);
+  const selectedWorkspace = workspaces.find((u) => u.id === selectedWorkspaceId);
 
   return (
     <form onSubmit={handleSave} className="max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-brand-dark">Paramètres</h1>
-        <p className="text-sm text-gray-500 mt-1">Webhook Mantiks, LGM et Intelligence Artificielle</p>
+        <p className="text-sm text-gray-500 mt-1">Webhook, LGM et Intelligence Artificielle</p>
       </div>
 
       {/* User selector */}
@@ -153,19 +151,19 @@ export function SettingsForm({ users }: { users: User[] }) {
           Gérer les paramètres de
         </label>
         <select
-          value={selectedUserId}
-          onChange={(e) => setSelectedUserId(e.target.value)}
+          value={selectedWorkspaceId}
+            onChange={(e) => { setLoading(true); setSelectedWorkspaceId(e.target.value); }}
           className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink bg-white"
         >
-          {users.map((u) => (
+          {workspaces.map((u) => (
             <option key={u.id} value={u.id}>
-              {u.name} ({u.email})
+              {u.name}
             </option>
           ))}
         </select>
-        {selectedUser && (
+        {selectedWorkspace && (
           <p className="text-xs text-gray-500 mt-1.5">
-            Vous éditez les paramètres de <strong>{selectedUser.name}</strong>
+            Vous éditez les paramètres de <strong>{selectedWorkspace.name}</strong>
           </p>
         )}
       </section>
@@ -176,9 +174,9 @@ export function SettingsForm({ users }: { users: User[] }) {
         <>
           {/* Webhook */}
           <section className="bg-white border border-gray-200 p-6 space-y-4">
-            <h2 className="font-semibold text-brand-dark">Webhook Mantiks</h2>
+            <h2 className="font-semibold text-brand-dark">Webhook</h2>
             <p className="text-sm text-gray-600">
-              Configurez cette URL dans le compte Mantiks de cet utilisateur pour recevoir les offres et leads.
+              Configurez cette URL dans votre outil source pour recevoir les offres et leads.
             </p>
             <div className="flex gap-2">
               <code className="flex-1 bg-gray-100 px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
@@ -198,7 +196,7 @@ export function SettingsForm({ users }: { users: User[] }) {
           <section className="bg-white border border-gray-200 p-6 space-y-4">
             <h2 className="font-semibold text-brand-dark">La Growth Machine</h2>
             <p className="text-sm text-gray-600">
-              Quand l&apos;utilisateur choisit une audience dans la colonne <strong>CONTACTER</strong>,
+              Quand un utilisateur choisit une audience dans la colonne <strong>CONTACTER</strong>,
               le lead est automatiquement ajouté à cette audience LGM.
             </p>
 

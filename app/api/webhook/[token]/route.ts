@@ -46,7 +46,7 @@ export async function POST(
     return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 });
   }
 
-  const user = await prisma.user.findUnique({
+  const workspace = await prisma.workspace.findUnique({
     where: { webhookToken: token },
     select: {
       id: true,
@@ -58,7 +58,7 @@ export async function POST(
     },
   });
 
-  if (!user) {
+  if (!workspace) {
     return NextResponse.json({ error: "Token invalide" }, { status: 401 });
   }
 
@@ -69,7 +69,7 @@ export async function POST(
     return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
   }
 
-  // Mantiks envoie { leads: [...] }
+  // Le fournisseur envoie { leads: [...] }
   const leads: Record<string, unknown>[] = Array.isArray(body.leads)
     ? body.leads
     : Array.isArray(body)
@@ -80,7 +80,7 @@ export async function POST(
     leads.map(async (lead: Record<string, unknown>) => {
       return prisma.jobOffer.create({
         data: {
-          userId: user.id,
+          workspaceId: workspace.id,
           title: sanitizeString(lead.job_offer_title) ?? "Sans titre",
           description: sanitizeString(lead.job_offer_description, 10000),
           url: sanitizeUrl(lead.job_offer_url),
@@ -111,7 +111,7 @@ export async function POST(
 
   // Auto-fill asynchrone : ne bloque pas la réponse
   const autoFillFields = await prisma.customFieldDef.findMany({
-    where: { userId: user.id, type: "AI", autoFill: true },
+    where: { workspaceId: workspace.id, type: "AI", autoFill: true },
   });
 
   if (autoFillFields.length > 0) {
@@ -120,7 +120,7 @@ export async function POST(
         autoFillFields.map(async (field) => {
           if (!field.formula) return;
           try {
-            const value = await callAIProvider(user, field.formula, offer);
+            const value = await callAIProvider(workspace, field.formula, offer);
             const customValues = JSON.parse(offer.customValues || "{}");
             customValues[field.name] = value;
             await prisma.jobOffer.update({
@@ -144,12 +144,12 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  const user = await prisma.user.findUnique({
+  const workspace = await prisma.workspace.findUnique({
     where: { webhookToken: token },
     select: { id: true },
   });
 
-  if (!user) {
+  if (!workspace) {
     return NextResponse.json({ error: "Token invalide" }, { status: 401 });
   }
 

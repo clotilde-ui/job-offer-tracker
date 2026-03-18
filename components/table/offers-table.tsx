@@ -81,13 +81,13 @@ const FIXED_COLUMNS = [
   { key: "leadPhone", label: "Tél. lead", defaultWidth: 130 },
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
-  { key: "lgmSent", label: "ENVOI DANS LGM", defaultWidth: 140 },
+  { key: "lgmSent", label: "Envoi dans LGM", defaultWidth: 140 },
 ];
 
 // Colonnes cachées par défaut (nouvelles colonnes Mantiks)
 const DEFAULT_HIDDEN_COLS = new Set([
   "url", "description", "linkedinPage", "website", "phone", "headquarters",
-  "receivedAt", "leadCivility", "leadFirstName", "leadLastName", "leadLinkedin", "leadPhone",
+  "receivedAt", "leadCivility", "leadFirstName", "leadLastName", "leadLinkedin", "leadPhone", "lgmSent",
 ]);
 const HIDDEN_COL_VERSION = "v1";
 
@@ -918,7 +918,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {!hiddenColumns.has("lgmSent") && (
                       <td className="px-3 py-3 text-center">
                         {offer.lgmSent ? (
-                          <span className="text-xs text-brand-green font-semibold whitespace-nowrap">LGM ✓</span>
+                          <span className="text-xs text-brand-green font-semibold whitespace-nowrap">Oui ✅</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}

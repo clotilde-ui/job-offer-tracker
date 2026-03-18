@@ -81,6 +81,7 @@ const FIXED_COLUMNS = [
   { key: "leadPhone", label: "Tél. lead", defaultWidth: 130 },
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
+  { key: "lgmSent", label: "ENVOI DANS LGM", defaultWidth: 140 },
 ];
 
 // Colonnes cachées par défaut (nouvelles colonnes Mantiks)
@@ -93,8 +94,8 @@ const HIDDEN_COL_VERSION = "v1";
 const CUSTOM_FIELD_DEFAULT_WIDTH = 130;
 
 function stickyBg(offer: JobOffer): string {
-  if (offer.doNotContact) return "#fef2f2"; // red-50
-  if (offer.toContact) return "rgba(38, 183, 67, 0.1)"; // brand-green/10
+  if (offer.doNotContact) return "#fef2f2"; // red-50 opaque
+  if (offer.toContact) return "#e9f8ec"; // brand-green/10 over white, opaque
   return "#ffffff";
 }
 
@@ -913,6 +914,17 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       </td>
                     )}
 
+                    {/* lgmSent */}
+                    {!hiddenColumns.has("lgmSent") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmSent ? (
+                          <span className="text-xs text-brand-green font-semibold whitespace-nowrap">LGM ✓</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
                     {/* Custom fields */}
                     {visibleCustom.map((field) => (
                       <td
@@ -1068,9 +1080,6 @@ function AudienceDropdownCell({
           <option value={offer.lgmAudience}>{offer.lgmAudience}</option>
         )}
       </select>
-      {offer.lgmSent && (
-        <span className="text-xs text-brand-green font-medium whitespace-nowrap">LGM ✓</span>
-      )}
     </div>
   );
 }

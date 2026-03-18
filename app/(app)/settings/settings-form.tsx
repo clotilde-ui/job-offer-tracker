@@ -61,6 +61,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lgmWebhookCopied, setLgmWebhookCopied] = useState(false);
 
   useEffect(() => {
     if (!selectedWorkspaceId) return;
@@ -134,7 +135,15 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function copyLgmWebhook() {
+    const url = `${window.location.origin}/api/lgm/webhook/${webhookToken}`;
+    navigator.clipboard.writeText(url);
+    setLgmWebhookCopied(true);
+    setTimeout(() => setLgmWebhookCopied(false), 2000);
+  }
+
   const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/webhook/${webhookToken}`;
+  const lgmWebhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/lgm/webhook/${webhookToken}`;
 
   const selectedWorkspace = workspaces.find((u) => u.id === selectedWorkspaceId);
 
@@ -199,6 +208,28 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
               Quand un utilisateur choisit une audience dans la colonne <strong>CONTACTER</strong>,
               le lead est automatiquement ajouté à cette audience LGM.
             </p>
+
+            <div>
+              <label className="block text-sm font-medium text-brand-dark mb-1">
+                Webhook LGM <span className="text-gray-400 font-normal">(événements de campagne)</span>
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Ajoutez cette URL dans les paramètres webhook de LGM pour recevoir les événements de campagne
+                (connexion, messages, réponses) et les afficher dans le tableau.
+              </p>
+              <div className="flex gap-2">
+                <code className="flex-1 bg-gray-100 px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
+                  {lgmWebhookUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyLgmWebhook}
+                  className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 whitespace-nowrap text-brand-dark"
+                >
+                  {lgmWebhookCopied ? "Copié !" : "Copier"}
+                </button>
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-brand-dark mb-1">Clé API LGM</label>

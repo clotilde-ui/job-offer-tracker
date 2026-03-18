@@ -122,6 +122,14 @@ model JobOffer {
   phoneLookupRequested Boolean  @default(false)
   enrichedPhone       String?
 
+  // Événements LGM (via webhook)
+  lgmConnectionSentAt      DateTime?
+  lgmConnectionAcceptedAt  DateTime?
+  lgmMessage1SentAt        DateTime?
+  lgmRepliedAt             DateTime?
+  lgmReplyContent          String?
+  lgmEvents                String?   @default("[]")
+
   // Champs personnalisés (JSON stocké en texte pour SQLite)
   customValues        String    @default("{}")
 

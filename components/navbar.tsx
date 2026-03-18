@@ -14,6 +14,7 @@ export function Navbar({ user }: NavbarProps) {
 
   const links = [
     { href: "/dashboard", label: "Offres & Leads" },
+    { href: "/guide", label: "Guide" },
     ...(user.role === "ADMIN"
       ? [
           { href: "/settings", label: "Paramètres" },

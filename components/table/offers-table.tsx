@@ -93,6 +93,11 @@ const HIDDEN_COL_VERSION = "v1";
 
 const CUSTOM_FIELD_DEFAULT_WIDTH = 130;
 
+function toProperCase(str: string | null | undefined): string | null | undefined {
+  if (!str) return str;
+  return str.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 function stickyBg(offer: JobOffer): string {
   if (offer.doNotContact) return "#fef2f2"; // red-50 opaque
   if (offer.toContact) return "#e9f8ec"; // brand-green/10 over white, opaque
@@ -806,7 +811,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                         {offer.leadFirstName || offer.leadLastName ? (
                           <div>
                             <div className="font-medium truncate text-brand-dark">
-                              {[offer.leadCivility, offer.leadFirstName, offer.leadLastName]
+                              {[offer.leadCivility, toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>
@@ -835,12 +840,12 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
 
                     {/* leadFirstName */}
                     {!hiddenColumns.has("leadFirstName") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadFirstName ?? "—"}</td>
+                      <td className="px-3 py-3 text-gray-600 truncate">{toProperCase(offer.leadFirstName) ?? "—"}</td>
                     )}
 
                     {/* leadLastName */}
                     {!hiddenColumns.has("leadLastName") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadLastName ?? "—"}</td>
+                      <td className="px-3 py-3 text-gray-600 truncate">{toProperCase(offer.leadLastName) ?? "—"}</td>
                     )}
 
                     {/* leadEmail */}

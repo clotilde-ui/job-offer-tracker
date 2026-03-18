@@ -33,6 +33,8 @@ model Workspace {
   lgmApiKey      String?
   lgmCampaignId  String?
   lgmAudiences   String?          @default("[]")
+  lgmIdentityId  String?
+  lgmMemberId    String?
   aiProvider     String?
   claudeApiKey   String?
   geminiApiKey   String?

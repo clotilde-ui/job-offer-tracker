@@ -48,6 +48,8 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspaces[0]?.id ?? "");
   const [webhookToken, setWebhookToken] = useState("");
   const [lgmApiKey, setLgmApiKey] = useState("");
+  const [lgmIdentityId, setLgmIdentityId] = useState("");
+  const [lgmMemberId, setLgmMemberId] = useState("");
   const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
   const [newAudience, setNewAudience] = useState("");
   const [aiProvider, setAiProvider] = useState<ProviderId>("claude");
@@ -73,6 +75,8 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
       .then((data) => {
         setWebhookToken(data.webhookToken ?? "");
         setLgmApiKey(data.lgmApiKey ?? "");
+        setLgmIdentityId(data.lgmIdentityId ?? "");
+        setLgmMemberId(data.lgmMemberId ?? "");
 
         // Parse audiences — migrate old lgmCampaignId if lgmAudiences is empty
         let audiences: string[] = [];
@@ -104,6 +108,8 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         lgmApiKey,
+        lgmIdentityId,
+        lgmMemberId,
         lgmAudiences,
         aiProvider,
         claudeApiKey: aiKeys.claude,
@@ -240,6 +246,35 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
                 placeholder="Clé API La Growth Machine"
                 className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-brand-dark mb-1">
+                  Identity ID <span className="text-gray-400 font-normal">(envoi de messages)</span>
+                </label>
+                <input
+                  type="text"
+                  value={lgmIdentityId}
+                  onChange={(e) => setLgmIdentityId(e.target.value)}
+                  placeholder="5f285dd71060540008900c6b"
+                  className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink font-mono"
+                />
+                <p className="text-xs text-gray-400 mt-1">ID de l&apos;identité LinkedIn connectée dans LGM</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-brand-dark mb-1">
+                  Member ID <span className="text-gray-400 font-normal">(attribution)</span>
+                </label>
+                <input
+                  type="text"
+                  value={lgmMemberId}
+                  onChange={(e) => setLgmMemberId(e.target.value)}
+                  placeholder="61e4bc2bfee5a67c674ca091"
+                  className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink font-mono"
+                />
+                <p className="text-xs text-gray-400 mt-1">ID du membre LGM (via l&apos;API Members)</p>
+              </div>
             </div>
 
             <div>

@@ -33,13 +33,18 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const [customFields, workspace] = await Promise.all([
     prisma.customFieldDef.findMany({ where: { workspaceId: targetWorkspaceId }, orderBy: { order: "asc" } }),
-    prisma.workspace.findUnique({ where: { id: targetWorkspaceId }, select: { name: true, lgmAudiences: true } }),
+    prisma.workspace.findUnique({
+      where: { id: targetWorkspaceId },
+      select: { name: true, lgmAudiences: true, lgmIdentityId: true, lgmMemberId: true },
+    }),
   ]);
 
   let lgmAudiences: string[] = [];
   try {
     lgmAudiences = JSON.parse(workspace?.lgmAudiences ?? "[]");
   } catch {}
+
+  const lgmIdentityConfigured = !!(workspace?.lgmIdentityId && workspace.lgmMemberId);
 
   return (
     <div>
@@ -56,7 +61,12 @@ export default async function DashboardPage({ searchParams }: Props) {
         )}
       </div>
 
-      <OffersTable customFields={customFields} targetWorkspaceId={isAdmin ? targetWorkspaceId : undefined} lgmAudiences={lgmAudiences} />
+      <OffersTable
+        customFields={customFields}
+        targetWorkspaceId={isAdmin ? targetWorkspaceId : undefined}
+        lgmAudiences={lgmAudiences}
+        lgmIdentityConfigured={lgmIdentityConfigured}
+      />
     </div>
   );
 }

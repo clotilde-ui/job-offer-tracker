@@ -58,6 +58,7 @@ interface OffersTableProps {
 }
 
 const FIXED_COLUMNS = [
+  { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
   { key: "title", label: "Offre d'emploi", defaultWidth: 220 },
   { key: "company", label: "Entreprise", defaultWidth: 180 },
   { key: "offerLocation", label: "Localisation", defaultWidth: 130 },
@@ -68,10 +69,15 @@ const FIXED_COLUMNS = [
   { key: "leadJobTitle", label: "Métier lead", defaultWidth: 140 },
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
-  { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
 ];
 
 const CUSTOM_FIELD_DEFAULT_WIDTH = 130;
+
+function stickyBg(offer: JobOffer): string {
+  if (offer.doNotContact) return "#fef2f2"; // red-50
+  if (offer.toContact) return "rgba(38, 183, 67, 0.1)"; // brand-green/10
+  return "#ffffff";
+}
 
 function evalFormula(formula: string, offer: JobOffer): string {
   return formula.replace(/\{(\w+)\}/g, (_, key) => {
@@ -510,14 +516,24 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
           <thead>
             <tr className="bg-brand-dark border-b border-gray-800">
               {/* delete placeholder col */}
-              <th style={{ width: 36, position: "relative" }} className="px-1 py-3" />
+              <th
+                style={{ width: 36, position: "sticky", left: 0, zIndex: 3, background: "#232323" }}
+                className="px-1 py-3"
+              />
               {visibleFixed.map((col) => {
                 const sortable = ["title", "company", "offerLocation", "source", "publishedAt", "receivedAt"].includes(col.key);
                 const active = sortBy === col.key;
+                const isSticky = col.key === "toContact";
                 return (
                   <th
                     key={col.key}
-                    style={{ width: getColWidth(col.key, col.defaultWidth), position: "relative" }}
+                    style={{
+                      width: getColWidth(col.key, col.defaultWidth),
+                      position: isSticky ? "sticky" : "relative",
+                      left: isSticky ? 36 : undefined,
+                      zIndex: isSticky ? 3 : undefined,
+                      background: isSticky ? "#232323" : undefined,
+                    }}
                     className="text-left px-3 py-3 font-medium text-white whitespace-nowrap select-none"
                   >
                     {sortable ? (
@@ -595,7 +611,11 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     onClick={() => setExpandedRow(expandedRow === offer.id ? null : offer.id)}
                   >
                     {/* Delete button */}
-                    <td className="px-1 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="px-1 py-3 text-center"
+                      style={{ position: "sticky", left: 0, zIndex: 2, background: stickyBg(offer) }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => deleteOffer(offer.id)}
                         className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs w-5 h-5 flex items-center justify-center"
@@ -604,6 +624,21 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                         ✕
                       </button>
                     </td>
+
+                    {/* toContact — audience dropdown (sticky) */}
+                    {!hiddenColumns.has("toContact") && (
+                      <td
+                        className="px-3 py-3"
+                        style={{ position: "sticky", left: 36, zIndex: 2, background: stickyBg(offer) }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <AudienceDropdownCell
+                          offer={offer}
+                          lgmAudiences={lgmAudiences}
+                          onSet={setContactStatus}
+                        />
+                      </td>
+                    )}
 
                     {/* Title */}
                     {!hiddenColumns.has("title") && (
@@ -753,17 +788,6 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                             void updatePhoneEnrichment(offer.id, { enrichedPhone: e.target.value || null });
                           }}
                           className="border border-gray-300 px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
-                        />
-                      </td>
-                    )}
-
-                    {/* toContact — audience dropdown */}
-                    {!hiddenColumns.has("toContact") && (
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <AudienceDropdownCell
-                          offer={offer}
-                          lgmAudiences={lgmAudiences}
-                          onSet={setContactStatus}
                         />
                       </td>
                     )}

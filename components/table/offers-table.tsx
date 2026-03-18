@@ -43,6 +43,11 @@ interface JobOffer {
   lgmAudience: string | null;
   phoneLookupRequested: boolean;
   enrichedPhone: string | null;
+  lgmConnectionSentAt: string | null;
+  lgmConnectionAcceptedAt: string | null;
+  lgmMessage1SentAt: string | null;
+  lgmRepliedAt: string | null;
+  lgmReplyContent: string | null;
   customValues: Record<string, unknown>;
 }
 
@@ -84,12 +89,18 @@ const FIXED_COLUMNS = [
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
   { key: "lgmSent", label: "Envoi dans LGM", defaultWidth: 140 },
+  { key: "lgmConnectionSentAt", label: "Connexion envoyée", defaultWidth: 150 },
+  { key: "lgmConnectionAcceptedAt", label: "Connexion acceptée", defaultWidth: 155 },
+  { key: "lgmMessage1SentAt", label: "Message 1 envoyé", defaultWidth: 150 },
+  { key: "lgmRepliedAt", label: "Réponse reçue", defaultWidth: 140 },
+  { key: "lgmReplyContent", label: "Contenu réponse", defaultWidth: 220 },
 ];
 
 // Colonnes cachées par défaut (nouvelles colonnes Mantiks)
 const DEFAULT_HIDDEN_COLS = new Set([
   "url", "description", "linkedinPage", "website", "phone", "headquarters",
   "receivedAt", "leadCivility", "leadFirstName", "leadLastName", "leadLinkedin", "leadPhone", "lgmSent",
+  "lgmConnectionSentAt", "lgmConnectionAcceptedAt", "lgmMessage1SentAt", "lgmRepliedAt", "lgmReplyContent",
 ]);
 const HIDDEN_COL_VERSION = "v1";
 
@@ -934,6 +945,69 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       </td>
                     )}
 
+                    {/* lgmConnectionSentAt */}
+                    {!hiddenColumns.has("lgmConnectionSentAt") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmConnectionSentAt ? (
+                          <span className="text-xs text-blue-600 font-semibold whitespace-nowrap">
+                            {new Date(offer.lgmConnectionSentAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* lgmConnectionAcceptedAt */}
+                    {!hiddenColumns.has("lgmConnectionAcceptedAt") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmConnectionAcceptedAt ? (
+                          <span className="text-xs text-blue-700 font-semibold whitespace-nowrap">
+                            {new Date(offer.lgmConnectionAcceptedAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* lgmMessage1SentAt */}
+                    {!hiddenColumns.has("lgmMessage1SentAt") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmMessage1SentAt ? (
+                          <span className="text-xs text-indigo-600 font-semibold whitespace-nowrap">
+                            {new Date(offer.lgmMessage1SentAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* lgmRepliedAt */}
+                    {!hiddenColumns.has("lgmRepliedAt") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmRepliedAt ? (
+                          <span className="text-xs text-brand-green font-semibold whitespace-nowrap">
+                            {new Date(offer.lgmRepliedAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* lgmReplyContent */}
+                    {!hiddenColumns.has("lgmReplyContent") && (
+                      <td className="px-3 py-3 max-w-xs">
+                        {offer.lgmReplyContent ? (
+                          <span className="text-xs text-gray-700 line-clamp-2">{offer.lgmReplyContent}</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
                     {/* Custom fields */}
                     {visibleCustom.map((field) => (
                       <td
@@ -969,6 +1043,8 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                           <Detail label="Téléphone lead" value={offer.leadPhone} />
                           <Detail label="Reçu le" value={new Date(offer.receivedAt).toLocaleString("fr-FR")} />
                         </div>
+
+                        <LgmTimeline offer={offer} />
                       </td>
                     </tr>
                   )}
@@ -1099,6 +1175,49 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
     <div>
       <span className="font-medium text-brand-dark">{label} : </span>
       <span className="text-gray-600">{value}</span>
+    </div>
+  );
+}
+
+function LgmTimeline({ offer }: { offer: JobOffer }) {
+  const events: { date: string; label: string; content?: string | null; type: "sent" | "received" | "neutral" }[] = [];
+
+  if (offer.lgmConnectionSentAt)
+    events.push({ date: offer.lgmConnectionSentAt, label: "Demande de connexion envoyée", type: "sent" });
+  if (offer.lgmConnectionAcceptedAt)
+    events.push({ date: offer.lgmConnectionAcceptedAt, label: "Connexion acceptée", type: "neutral" });
+  if (offer.lgmMessage1SentAt)
+    events.push({ date: offer.lgmMessage1SentAt, label: "Message envoyé", type: "sent" });
+  if (offer.lgmRepliedAt)
+    events.push({ date: offer.lgmRepliedAt, label: "Réponse reçue", content: offer.lgmReplyContent, type: "received" });
+
+  events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mt-4 border-t border-brand-pink/20 pt-4">
+      <p className="text-xs font-medium text-brand-dark mb-3">Conversation LGM</p>
+      <div className="space-y-2">
+        {events.map((ev, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <span className="text-xs text-gray-400 whitespace-nowrap pt-0.5 w-28 shrink-0">
+              {new Date(ev.date).toLocaleDateString("fr-FR")}
+            </span>
+            <div className={cn(
+              "flex-1 text-xs px-3 py-1.5 border-l-2",
+              ev.type === "sent" && "border-l-brand-dark text-brand-dark",
+              ev.type === "received" && "border-l-[#26B743] text-[#26B743]",
+              ev.type === "neutral" && "border-l-gray-300 text-gray-500",
+            )}>
+              <span className="font-medium">{ev.label}</span>
+              {ev.content && (
+                <p className="text-gray-600 mt-0.5 font-normal">{ev.content}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

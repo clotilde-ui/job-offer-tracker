@@ -33,6 +33,8 @@ model Workspace {
   lgmApiKey      String?
   lgmCampaignId  String?
   lgmAudiences   String?          @default("[]")
+  lgmIdentityId  String?
+  lgmMemberId    String?
   aiProvider     String?
   claudeApiKey   String?
   geminiApiKey   String?
@@ -121,6 +123,14 @@ model JobOffer {
   lgmAudience         String?
   phoneLookupRequested Boolean  @default(false)
   enrichedPhone       String?
+
+  // Événements LGM (via webhook)
+  lgmConnectionSentAt      DateTime?
+  lgmConnectionAcceptedAt  DateTime?
+  lgmMessage1SentAt        DateTime?
+  lgmRepliedAt             DateTime?
+  lgmReplyContent          String?
+  lgmEvents                String?   @default("[]")
 
   // Champs personnalisés (JSON stocké en texte pour SQLite)
   customValues        String    @default("{}")

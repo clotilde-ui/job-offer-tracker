@@ -117,6 +117,7 @@ model JobOffer {
   doNotContact        Boolean   @default(false)
   contactedAt         DateTime?
   lgmSent             Boolean   @default(false)
+  lgmSentAt           DateTime?
   lgmAudience         String?
   phoneLookupRequested Boolean  @default(false)
   enrichedPhone       String?

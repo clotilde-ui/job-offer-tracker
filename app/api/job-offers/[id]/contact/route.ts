@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           body: body.toString(),
         });
 
-        if (res.ok) await prisma.jobOffer.update({ where: { id }, data: { lgmSent: true } });
+        if (res.ok) await prisma.jobOffer.update({ where: { id }, data: { lgmSent: true, lgmSentAt: new Date() } });
       } catch (err) {
         console.error("Erreur LGM:", err);
       }

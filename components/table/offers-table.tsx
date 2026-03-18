@@ -37,6 +37,7 @@ interface JobOffer {
   leadPhone: string | null;
   toContact: boolean;
   doNotContact: boolean;
+  contactedAt: string | null;
   lgmSent: boolean;
   lgmSentAt: string | null;
   lgmAudience: string | null;
@@ -923,9 +924,9 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {/* lgmSent */}
                     {!hiddenColumns.has("lgmSent") && (
                       <td className="px-3 py-3 text-center">
-                        {offer.lgmSentAt ? (
+                        {offer.lgmSent ? (
                           <span className="text-xs text-brand-green font-semibold whitespace-nowrap">
-                            {new Date(offer.lgmSentAt).toLocaleDateString("fr-FR")}
+                            {new Date(offer.lgmSentAt ?? offer.contactedAt ?? "").toLocaleDateString("fr-FR")}
                           </span>
                         ) : (
                           <span className="text-gray-300">—</span>

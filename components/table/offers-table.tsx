@@ -60,16 +60,35 @@ interface OffersTableProps {
 const FIXED_COLUMNS = [
   { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
   { key: "title", label: "Offre d'emploi", defaultWidth: 220 },
+  { key: "url", label: "URL de l'offre", defaultWidth: 130 },
+  { key: "description", label: "Description", defaultWidth: 250 },
   { key: "company", label: "Entreprise", defaultWidth: 180 },
+  { key: "linkedinPage", label: "LinkedIn entreprise", defaultWidth: 150 },
+  { key: "website", label: "Site web", defaultWidth: 150 },
+  { key: "phone", label: "Tél. entreprise", defaultWidth: 130 },
+  { key: "headquarters", label: "Siège social", defaultWidth: 150 },
   { key: "offerLocation", label: "Localisation", defaultWidth: 130 },
   { key: "source", label: "Source", defaultWidth: 100 },
   { key: "publishedAt", label: "Date offre", defaultWidth: 110 },
+  { key: "receivedAt", label: "Date réception", defaultWidth: 130 },
   { key: "leadName", label: "Lead", defaultWidth: 150 },
+  { key: "leadCivility", label: "Civilité", defaultWidth: 90 },
+  { key: "leadFirstName", label: "Prénom lead", defaultWidth: 120 },
+  { key: "leadLastName", label: "Nom lead", defaultWidth: 120 },
   { key: "leadEmail", label: "Email lead", defaultWidth: 180 },
   { key: "leadJobTitle", label: "Métier lead", defaultWidth: 140 },
+  { key: "leadLinkedin", label: "LinkedIn lead", defaultWidth: 150 },
+  { key: "leadPhone", label: "Tél. lead", defaultWidth: 130 },
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
 ];
+
+// Colonnes cachées par défaut (nouvelles colonnes Mantiks)
+const DEFAULT_HIDDEN_COLS = new Set([
+  "url", "description", "linkedinPage", "website", "phone", "headquarters",
+  "receivedAt", "leadCivility", "leadFirstName", "leadLastName", "leadLinkedin", "leadPhone",
+]);
+const HIDDEN_COL_VERSION = "v1";
 
 const CUSTOM_FIELD_DEFAULT_WIDTH = 130;
 
@@ -119,7 +138,15 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   // Load preferences from localStorage
   useEffect(() => {
     const savedHidden = localStorage.getItem("jot_hidden_cols");
-    if (savedHidden) setHiddenColumns(new Set(JSON.parse(savedHidden)));
+    const savedVersion = localStorage.getItem("jot_hidden_cols_v");
+    if (savedHidden && savedVersion === HIDDEN_COL_VERSION) {
+      setHiddenColumns(new Set(JSON.parse(savedHidden)));
+    } else {
+      // Première visite ou nouvelle version : fusionner avec les défauts
+      const base = savedHidden ? new Set<string>(JSON.parse(savedHidden)) : new Set<string>();
+      setHiddenColumns(new Set([...base, ...DEFAULT_HIDDEN_COLS]));
+      localStorage.setItem("jot_hidden_cols_v", HIDDEN_COL_VERSION);
+    }
     const savedWidths = localStorage.getItem("jot_col_widths");
     if (savedWidths) setColWidths(JSON.parse(savedWidths));
   }, []);
@@ -658,6 +685,27 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       </td>
                     )}
 
+                    {/* url */}
+                    {!hiddenColumns.has("url") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        {offer.url ? (
+                          <a href={offer.url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-brand-dark underline hover:text-brand-pink">
+                            Voir
+                          </a>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                    )}
+
+                    {/* description */}
+                    {!hiddenColumns.has("description") && (
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("description", 250) }}>
+                        <span className="text-xs text-gray-600 block truncate" title={offer.description ?? undefined}>
+                          {offer.description ? offer.description.slice(0, 120) + (offer.description.length > 120 ? "…" : "") : "—"}
+                        </span>
+                      </td>
+                    )}
+
                     {/* Company */}
                     {!hiddenColumns.has("company") && (
                       <td className="px-3 py-3" style={{ maxWidth: getColWidth("company", 180) }}>
@@ -689,6 +737,40 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       </td>
                     )}
 
+                    {/* linkedinPage */}
+                    {!hiddenColumns.has("linkedinPage") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        {offer.linkedinPage ? (
+                          <a href={offer.linkedinPage} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-brand-dark underline hover:text-brand-pink">
+                            LinkedIn
+                          </a>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                    )}
+
+                    {/* website */}
+                    {!hiddenColumns.has("website") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        {offer.website ? (
+                          <a href={offer.website} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-brand-dark underline hover:text-brand-pink">
+                            Site
+                          </a>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                    )}
+
+                    {/* phone */}
+                    {!hiddenColumns.has("phone") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.phone ?? "—"}</td>
+                    )}
+
+                    {/* headquarters */}
+                    {!hiddenColumns.has("headquarters") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.headquarters ?? "—"}</td>
+                    )}
+
                     {/* offerLocation */}
                     {!hiddenColumns.has("offerLocation") && (
                       <td className="px-3 py-3 text-gray-600 truncate">
@@ -707,6 +789,13 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                         {offer.publishedAt
                           ? new Date(offer.publishedAt).toLocaleDateString("fr-FR")
                           : "—"}
+                      </td>
+                    )}
+
+                    {/* receivedAt */}
+                    {!hiddenColumns.has("receivedAt") && (
+                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
+                        {new Date(offer.receivedAt).toLocaleDateString("fr-FR")}
                       </td>
                     )}
 
@@ -738,6 +827,21 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       </td>
                     )}
 
+                    {/* leadCivility */}
+                    {!hiddenColumns.has("leadCivility") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadCivility ?? "—"}</td>
+                    )}
+
+                    {/* leadFirstName */}
+                    {!hiddenColumns.has("leadFirstName") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadFirstName ?? "—"}</td>
+                    )}
+
+                    {/* leadLastName */}
+                    {!hiddenColumns.has("leadLastName") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadLastName ?? "—"}</td>
+                    )}
+
                     {/* leadEmail */}
                     {!hiddenColumns.has("leadEmail") && (
                       <td className="px-3 py-3 text-gray-600 truncate">
@@ -760,6 +864,23 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       <td className="px-3 py-3 text-gray-600 truncate">
                         {offer.leadJobTitle ?? "—"}
                       </td>
+                    )}
+
+                    {/* leadLinkedin */}
+                    {!hiddenColumns.has("leadLinkedin") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        {offer.leadLinkedin ? (
+                          <a href={offer.leadLinkedin} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-brand-dark underline hover:text-brand-pink">
+                            LinkedIn
+                          </a>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                    )}
+
+                    {/* leadPhone */}
+                    {!hiddenColumns.has("leadPhone") && (
+                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadPhone ?? "—"}</td>
                     )}
 
                     {/* phoneLookupRequested */}

@@ -20,8 +20,6 @@ export async function GET(req: NextRequest) {
       lgmApiKey: true,
       lgmCampaignId: true,
       lgmAudiences: true,
-      lgmIdentityId: true,
-      lgmMemberId: true,
       aiProvider: true,
       claudeApiKey: true,
       geminiApiKey: true,
@@ -40,7 +38,7 @@ export async function PATCH(req: NextRequest) {
   const workspaceId = resolveWorkspaceId(session, req);
   if (!workspaceId) return NextResponse.json({ error: "Workspace requis" }, { status: 400 });
 
-  const { lgmApiKey, lgmAudiences, lgmIdentityId, lgmMemberId, aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey } =
+  const { lgmApiKey, lgmAudiences, aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey } =
     await req.json();
 
   const workspace = await prisma.workspace.update({
@@ -48,8 +46,6 @@ export async function PATCH(req: NextRequest) {
     data: {
       lgmApiKey,
       lgmAudiences: Array.isArray(lgmAudiences) ? JSON.stringify(lgmAudiences) : lgmAudiences,
-      lgmIdentityId,
-      lgmMemberId,
       aiProvider,
       claudeApiKey,
       geminiApiKey,
@@ -59,8 +55,6 @@ export async function PATCH(req: NextRequest) {
     select: {
       lgmApiKey: true,
       lgmAudiences: true,
-      lgmIdentityId: true,
-      lgmMemberId: true,
       aiProvider: true,
       claudeApiKey: true,
       geminiApiKey: true,

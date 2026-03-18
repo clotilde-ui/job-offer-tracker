@@ -41,9 +41,6 @@ export default function InboxPage() {
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("open");
 
   const fetchConversations = useCallback(async () => {
@@ -70,8 +67,6 @@ export default function InboxPage() {
   async function openConversation(conv: Conversation) {
     setSelected(conv);
     setMessages([]);
-    setSendResult(null);
-    setReplyText("");
     setLoadingMessages(true);
     try {
       const res = await fetch(`/api/lgm/inbox/${conv.id}/messages`);
@@ -81,31 +76,6 @@ export default function InboxPage() {
       setMessages([]);
     } finally {
       setLoadingMessages(false);
-    }
-  }
-
-  async function sendReply() {
-    if (!selected || !replyText.trim()) return;
-    setSending(true);
-    setSendResult(null);
-    try {
-      const res = await fetch(`/api/lgm/inbox/${selected.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: replyText.trim(), type: "outgoing" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setReplyText("");
-        setSendResult({ ok: true, msg: "Réponse envoyée !" });
-        setMessages((prev) => [...prev, data]);
-      } else {
-        setSendResult({ ok: false, msg: data.error ?? "Erreur lors de l'envoi" });
-      }
-    } catch {
-      setSendResult({ ok: false, msg: "Erreur réseau" });
-    } finally {
-      setSending(false);
     }
   }
 
@@ -264,30 +234,6 @@ export default function InboxPage() {
                 )}
               </div>
 
-              {/* Reply box */}
-              <div className="px-6 py-4 border-t border-gray-200">
-                <div className="flex gap-2 items-end">
-                  <textarea
-                    rows={2}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Votre réponse..."
-                    className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink resize-none"
-                  />
-                  <button
-                    onClick={sendReply}
-                    disabled={sending || !replyText.trim()}
-                    className="bg-brand-pink text-brand-dark px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
-                  >
-                    {sending ? "Envoi..." : "Répondre"}
-                  </button>
-                </div>
-                {sendResult && (
-                  <p className={`text-xs mt-1 ${sendResult.ok ? "text-[#26B743]" : "text-red-500"}`}>
-                    {sendResult.msg}
-                  </p>
-                )}
-              </div>
             </>
           )}
         </div>

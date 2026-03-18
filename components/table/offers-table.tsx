@@ -62,7 +62,6 @@ interface OffersTableProps {
   customFields: CustomField[];
   targetWorkspaceId?: string;
   lgmAudiences: string[];
-  lgmIdentityConfigured?: boolean;
 }
 
 const FIXED_COLUMNS = [
@@ -129,7 +128,7 @@ function evalFormula(formula: string, offer: JobOffer): string {
   });
 }
 
-export function OffersTable({ customFields: initialCustomFields, targetWorkspaceId, lgmAudiences, lgmIdentityConfigured }: OffersTableProps) {
+export function OffersTable({ customFields: initialCustomFields, targetWorkspaceId, lgmAudiences }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -141,9 +140,6 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const [showAddField, setShowAddField] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<Set<string>>(new Set());
-  const [lgmMessageDraft, setLgmMessageDraft] = useState<Record<string, string>>({});
-  const [lgmSendingIds, setLgmSendingIds] = useState<Set<string>>(new Set());
-  const [lgmSendResult, setLgmSendResult] = useState<Record<string, { ok: boolean; msg: string }>>({});
 
   // Sort & filter
   const [sortBy, setSortBy] = useState("receivedAt");
@@ -347,30 +343,6 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     if (res.ok) {
       setOffers((prev) => prev.filter((o) => o.id !== id));
       setTotal((t) => t - 1);
-    }
-  }
-
-  async function sendLgmMessage(offerId: string) {
-    const message = lgmMessageDraft[offerId]?.trim();
-    if (!message) return;
-    setLgmSendingIds((prev) => new Set([...prev, offerId]));
-    try {
-      const res = await fetch(`/api/lgm/send/${offerId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setLgmMessageDraft((prev) => ({ ...prev, [offerId]: "" }));
-        setLgmSendResult((prev) => ({ ...prev, [offerId]: { ok: true, msg: "Message envoyé !" } }));
-      } else {
-        setLgmSendResult((prev) => ({ ...prev, [offerId]: { ok: false, msg: data.error ?? "Erreur lors de l'envoi" } }));
-      }
-    } catch {
-      setLgmSendResult((prev) => ({ ...prev, [offerId]: { ok: false, msg: "Erreur réseau" } }));
-    } finally {
-      setLgmSendingIds((prev) => { const next = new Set(prev); next.delete(offerId); return next; });
     }
   }
 
@@ -1072,32 +1044,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                           <Detail label="Reçu le" value={new Date(offer.receivedAt).toLocaleString("fr-FR")} />
                         </div>
 
-                        {lgmIdentityConfigured && offer.leadLinkedin && (
-                          <div className="mt-4 border-t border-brand-pink/20 pt-4">
-                            <p className="text-xs font-medium text-brand-dark mb-2">Envoyer un message LinkedIn via LGM</p>
-                            <div className="flex gap-2 items-start">
-                              <textarea
-                                rows={2}
-                                value={lgmMessageDraft[offer.id] ?? ""}
-                                onChange={(e) => setLgmMessageDraft((prev) => ({ ...prev, [offer.id]: e.target.value }))}
-                                placeholder="Votre message LinkedIn..."
-                                className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink resize-none"
-                              />
-                              <button
-                                onClick={() => sendLgmMessage(offer.id)}
-                                disabled={lgmSendingIds.has(offer.id) || !lgmMessageDraft[offer.id]?.trim()}
-                                className="bg-brand-pink text-brand-dark px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
-                              >
-                                {lgmSendingIds.has(offer.id) ? "Envoi..." : "Envoyer"}
-                              </button>
-                            </div>
-                            {lgmSendResult[offer.id] && (
-                              <p className={`text-xs mt-1 ${lgmSendResult[offer.id].ok ? "text-[#26B743]" : "text-red-500"}`}>
-                                {lgmSendResult[offer.id].msg}
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        <LgmTimeline offer={offer} />
                       </td>
                     </tr>
                   )}
@@ -1228,6 +1175,49 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
     <div>
       <span className="font-medium text-brand-dark">{label} : </span>
       <span className="text-gray-600">{value}</span>
+    </div>
+  );
+}
+
+function LgmTimeline({ offer }: { offer: JobOffer }) {
+  const events: { date: string; label: string; content?: string | null; type: "sent" | "received" | "neutral" }[] = [];
+
+  if (offer.lgmConnectionSentAt)
+    events.push({ date: offer.lgmConnectionSentAt, label: "Demande de connexion envoyée", type: "sent" });
+  if (offer.lgmConnectionAcceptedAt)
+    events.push({ date: offer.lgmConnectionAcceptedAt, label: "Connexion acceptée", type: "neutral" });
+  if (offer.lgmMessage1SentAt)
+    events.push({ date: offer.lgmMessage1SentAt, label: "Message envoyé", type: "sent" });
+  if (offer.lgmRepliedAt)
+    events.push({ date: offer.lgmRepliedAt, label: "Réponse reçue", content: offer.lgmReplyContent, type: "received" });
+
+  events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mt-4 border-t border-brand-pink/20 pt-4">
+      <p className="text-xs font-medium text-brand-dark mb-3">Conversation LGM</p>
+      <div className="space-y-2">
+        {events.map((ev, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <span className="text-xs text-gray-400 whitespace-nowrap pt-0.5 w-28 shrink-0">
+              {new Date(ev.date).toLocaleDateString("fr-FR")}
+            </span>
+            <div className={cn(
+              "flex-1 text-xs px-3 py-1.5 border-l-2",
+              ev.type === "sent" && "border-l-brand-dark text-brand-dark",
+              ev.type === "received" && "border-l-[#26B743] text-[#26B743]",
+              ev.type === "neutral" && "border-l-gray-300 text-gray-500",
+            )}>
+              <span className="font-medium">{ev.label}</span>
+              {ev.content && (
+                <p className="text-gray-600 mt-0.5 font-normal">{ev.content}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

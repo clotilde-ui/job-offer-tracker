@@ -579,7 +579,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
             ) : offers.length === 0 ? (
               <tr>
                 <td colSpan={visibleCount} className="px-3 py-8 text-center text-gray-400">
-                  Aucune offre. Les données arrivent via votre webhook Mantiks.
+                  Aucune offre. Les données arrivent via votre webhook.
                 </td>
               </tr>
             ) : (

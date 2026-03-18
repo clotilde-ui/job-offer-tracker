@@ -4,7 +4,7 @@ import { SessionProvider } from "@/components/session-provider";
 
 export const metadata: Metadata = {
   title: "Job Offer Tracker",
-  description: "Suivi des offres d'emploi et leads Mantiks",
+  description: "Suivi des offres d'emploi et leads",
 };
 
 export default function RootLayout({

@@ -69,7 +69,7 @@ export async function POST(
     return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
   }
 
-  // Mantiks envoie { leads: [...] }
+  // Le fournisseur envoie { leads: [...] }
   const leads: Record<string, unknown>[] = Array.isArray(body.leads)
     ? body.leads
     : Array.isArray(body)

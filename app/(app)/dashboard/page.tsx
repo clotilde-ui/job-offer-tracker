@@ -47,7 +47,7 @@ export default async function DashboardPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-semibold text-brand-dark">Offres & Leads</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {isAdmin ? `Workspace: ${workspace?.name ?? "Inconnu"}` : "Toutes les offres reçues via Mantiks"}
+            {isAdmin ? `Workspace: ${workspace?.name ?? "Inconnu"}` : "Toutes les offres reçues via votre webhook"}
           </p>
         </div>
 

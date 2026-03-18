@@ -142,7 +142,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
     <form onSubmit={handleSave} className="max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-brand-dark">Paramètres</h1>
-        <p className="text-sm text-gray-500 mt-1">Webhook Mantiks, LGM et Intelligence Artificielle</p>
+        <p className="text-sm text-gray-500 mt-1">Webhook, LGM et Intelligence Artificielle</p>
       </div>
 
       {/* User selector */}
@@ -174,9 +174,9 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
         <>
           {/* Webhook */}
           <section className="bg-white border border-gray-200 p-6 space-y-4">
-            <h2 className="font-semibold text-brand-dark">Webhook Mantiks</h2>
+            <h2 className="font-semibold text-brand-dark">Webhook</h2>
             <p className="text-sm text-gray-600">
-              Configurez cette URL dans le compte Mantiks de ce workspace pour recevoir les offres et leads.
+              Configurez cette URL dans votre outil source pour recevoir les offres et leads.
             </p>
             <div className="flex gap-2">
               <code className="flex-1 bg-gray-100 px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">

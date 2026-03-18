@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
         offer.enrichedPhone ?? "",
         contactStatus,
         offer.lgmAudience ?? "",
-        offer.lgmSent ? "Oui" : "Non",
+        offer.lgmSentAt ? new Date(offer.lgmSentAt).toLocaleDateString("fr-FR") : "",
       ];
 
       const custom = customFieldDefs.map((f) => customValues[f.name] ?? "");

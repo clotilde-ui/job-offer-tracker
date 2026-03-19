@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
       geminiApiKey: true,
       groqApiKey: true,
       openaiApiKey: true,
+      mantiksApiKey: true,
     },
   });
 
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest) {
   const workspaceId = resolveWorkspaceId(session, req);
   if (!workspaceId) return NextResponse.json({ error: "Workspace requis" }, { status: 400 });
 
-  const { lgmApiKey, lgmAudiences, aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey } =
+  const { lgmApiKey, lgmAudiences, aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey, mantiksApiKey } =
     await req.json();
 
   const workspace = await prisma.workspace.update({
@@ -51,6 +52,7 @@ export async function PATCH(req: NextRequest) {
       geminiApiKey,
       groqApiKey,
       openaiApiKey,
+      mantiksApiKey,
     },
     select: {
       lgmApiKey: true,
@@ -60,6 +62,7 @@ export async function PATCH(req: NextRequest) {
       geminiApiKey: true,
       groqApiKey: true,
       openaiApiKey: true,
+      mantiksApiKey: true,
     },
   });
 

@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OffersTable } from "@/components/table/offers-table";
 import { WorkspaceSwitcher } from "@/components/admin/workspace-switcher";
+import { MantikSearchPanel } from "@/components/admin/mantiks-search-panel";
 
 interface Props {
   searchParams: Promise<{ workspaceId?: string }>;
@@ -55,6 +56,12 @@ export default async function DashboardPage({ searchParams }: Props) {
           <WorkspaceSwitcher workspaces={allWorkspaces} currentWorkspaceId={targetWorkspaceId} />
         )}
       </div>
+
+      {isAdmin && (
+        <div className="mb-6">
+          <MantikSearchPanel workspaceId={targetWorkspaceId} />
+        </div>
+      )}
 
       <OffersTable customFields={customFields} targetWorkspaceId={isAdmin ? targetWorkspaceId : undefined} lgmAudiences={lgmAudiences} />
     </div>

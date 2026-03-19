@@ -49,6 +49,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
   const [webhookToken, setWebhookToken] = useState("");
   const [lgmApiKey, setLgmApiKey] = useState("");
   const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
+  const [mantiksApiKey, setMantiksApiKey] = useState("");
   const [newAudience, setNewAudience] = useState("");
   const [aiProvider, setAiProvider] = useState<ProviderId>("claude");
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, string>>({
@@ -73,6 +74,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
       .then((data) => {
         setWebhookToken(data.webhookToken ?? "");
         setLgmApiKey(data.lgmApiKey ?? "");
+        setMantiksApiKey(data.mantiksApiKey ?? "");
 
         // Parse audiences — migrate old lgmCampaignId if lgmAudiences is empty
         let audiences: string[] = [];
@@ -110,6 +112,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
         geminiApiKey: aiKeys.gemini,
         groqApiKey: aiKeys.groq,
         openaiApiKey: aiKeys.openai,
+        mantiksApiKey,
       }),
     });
     setSaving(false);
@@ -360,6 +363,26 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
                   </div>
                 );
               })}
+            </div>
+          </section>
+
+          {/* Mantiks */}
+          <section className="bg-white border border-gray-200 p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-brand-dark">Mantiks</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Clé API pour la recherche d&apos;offres d&apos;emploi via l&apos;API Mantiks (accessible dans le dashboard admin).
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-dark mb-1">Clé API Mantiks</label>
+              <input
+                type="password"
+                value={mantiksApiKey}
+                onChange={(e) => setMantiksApiKey(e.target.value)}
+                placeholder="Votre clé API Mantiks"
+                className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+              />
             </div>
           </section>
 

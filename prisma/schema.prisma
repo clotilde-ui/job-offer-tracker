@@ -47,6 +47,7 @@ model Workspace {
   users          User[]
   jobOffers      JobOffer[]
   customFields   CustomFieldDef[]
+  mantikSearches MantikSearch[]
 }
 
 model Account {
@@ -141,6 +142,19 @@ model JobOffer {
   @@index([workspaceId])
   @@index([toContact])
   @@index([receivedAt])
+}
+
+model MantikSearch {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  filters     String    // JSON
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }
 
 model CustomFieldDef {

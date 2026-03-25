@@ -126,6 +126,11 @@ model JobOffer {
   phoneLookupRequested Boolean  @default(false)
   enrichedPhone       String?
 
+  // Stats LGM (via sync API)
+  lgmLeadId           String?
+  lgmMessagesSent     Int?
+  lgmEmailOpened      Int?
+
   // Événements LGM (via webhook)
   lgmConnectionSentAt      DateTime?
   lgmConnectionAcceptedAt  DateTime?

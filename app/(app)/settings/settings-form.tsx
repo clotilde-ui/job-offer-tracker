@@ -50,6 +50,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
   const [lgmApiKey, setLgmApiKey] = useState("");
   const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
   const [mantiksApiKey, setMantiksApiKey] = useState("");
+  const [apolloApiKey, setApolloApiKey] = useState("");
   const [newAudience, setNewAudience] = useState("");
   const [aiProvider, setAiProvider] = useState<ProviderId>("claude");
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, string>>({
@@ -75,6 +76,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
         setWebhookToken(data.webhookToken ?? "");
         setLgmApiKey(data.lgmApiKey ?? "");
         setMantiksApiKey(data.mantiksApiKey ?? "");
+        setApolloApiKey(data.apolloApiKey ?? "");
 
         // Parse audiences — migrate old lgmCampaignId if lgmAudiences is empty
         let audiences: string[] = [];
@@ -113,6 +115,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
         groqApiKey: aiKeys.groq,
         openaiApiKey: aiKeys.openai,
         mantiksApiKey,
+        apolloApiKey,
       }),
     });
     setSaving(false);
@@ -381,6 +384,37 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
                 value={mantiksApiKey}
                 onChange={(e) => setMantiksApiKey(e.target.value)}
                 placeholder="Votre clé API Mantiks"
+                className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+              />
+            </div>
+          </section>
+
+          {/* Apollo */}
+          <section className="bg-white border border-gray-200 p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-brand-dark">Apollo</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Utilisé pour l&apos;enrichissement téléphonique : lorsque vous cochez &quot;Chercher tél.&quot;,
+                Apollo recherche automatiquement le numéro mobile du contact via son profil LinkedIn.
+              </p>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-brand-dark">Clé API Apollo</label>
+                <a
+                  href="https://app.apollo.io/#/settings/integrations/api"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-brand-dark underline"
+                >
+                  Obtenir une clé
+                </a>
+              </div>
+              <input
+                type="password"
+                value={apolloApiKey}
+                onChange={(e) => setApolloApiKey(e.target.value)}
+                placeholder="Votre clé API Apollo"
                 className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
               />
             </div>

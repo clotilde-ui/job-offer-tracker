@@ -19,7 +19,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "URL LinkedIn manquante" }, { status: 400 });
   }
 
-  const apolloApiKey = process.env.APOLLO_API_KEY;
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: offer.workspaceId },
+    select: { apolloApiKey: true },
+  });
+  const apolloApiKey = workspace?.apolloApiKey ?? process.env.APOLLO_API_KEY;
   if (!apolloApiKey) {
     return NextResponse.json({ error: "Clé API Apollo non configurée" }, { status: 500 });
   }

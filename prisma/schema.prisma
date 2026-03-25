@@ -41,6 +41,7 @@ model Workspace {
   groqApiKey     String?
   openaiApiKey   String?
   mantiksApiKey  String?
+  apolloApiKey   String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 

@@ -43,6 +43,7 @@ interface JobOffer {
   lgmAudience: string | null;
   phoneLookupRequested: boolean;
   enrichedPhone: string | null;
+  apolloEnrichmentStatus: string;
   lgmMessagesSent: number | null;
   lgmEmailOpened: number | null;
   lgmConnectionSentAt: string | null;
@@ -226,6 +227,14 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     fetchOffers();
   }, [fetchOffers]);
 
+  // Polling pour les enrichissements Apollo en cours
+  useEffect(() => {
+    const hasPending = offers.some((o) => o.apolloEnrichmentStatus === "pending");
+    if (!hasPending) return;
+    const interval = setInterval(() => { void fetchOffers(); }, 10000);
+    return () => clearInterval(interval);
+  }, [offers, fetchOffers]);
+
   async function setContactStatus(id: string, status: "qualify" | "contact" | "doNotContact", audience?: string) {
     const prevOffer = offers.find((o) => o.id === id);
     if (!prevOffer) return;
@@ -330,10 +339,23 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                   : o.phoneLookupRequested,
               enrichedPhone:
                 updated.enrichedPhone !== undefined ? updated.enrichedPhone : o.enrichedPhone,
+              apolloEnrichmentStatus: updated.apolloEnrichmentStatus ?? o.apolloEnrichmentStatus,
             }
           : o
       )
     );
+
+    // Déclencher l'enrichissement Apollo si la case vient d'être cochée
+    if (payload.phoneLookupRequested === true) {
+      setOffers((prev) =>
+        prev.map((o) => o.id === offerId ? { ...o, apolloEnrichmentStatus: "pending" } : o)
+      );
+      fetch(`/api/job-offers/${offerId}/enrich-phone`, { method: "POST" }).catch(() => {
+        setOffers((prev) =>
+          prev.map((o) => o.id === offerId ? { ...o, apolloEnrichmentStatus: "failed" } : o)
+        );
+      });
+    }
   }
 
   async function deleteCustomField(fieldId: string) {
@@ -944,15 +966,21 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {/* enrichedPhone */}
                     {!hiddenColumns.has("enrichedPhone") && (
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          defaultValue={offer.enrichedPhone ?? ""}
-                          placeholder="Numéro enrichi"
-                          onBlur={(e) => {
-                            void updatePhoneEnrichment(offer.id, { enrichedPhone: e.target.value || null });
-                          }}
-                          className="border border-gray-300 px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
-                        />
+                        {offer.apolloEnrichmentStatus === "pending" ? (
+                          <span className="text-xs text-amber-600 font-medium animate-pulse">Recherche en cours…</span>
+                        ) : offer.apolloEnrichmentStatus === "failed" && !offer.enrichedPhone ? (
+                          <span className="text-xs text-red-400">Non trouvé</span>
+                        ) : (
+                          <input
+                            type="text"
+                            defaultValue={offer.enrichedPhone ?? ""}
+                            placeholder="Numéro enrichi"
+                            onBlur={(e) => {
+                              void updatePhoneEnrichment(offer.id, { enrichedPhone: e.target.value || null });
+                            }}
+                            className="border border-gray-300 px-2 py-1 text-sm w-full text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-pink"
+                          />
+                        )}
                       </td>
                     )}
 

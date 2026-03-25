@@ -125,6 +125,7 @@ model JobOffer {
   lgmAudience         String?
   phoneLookupRequested Boolean  @default(false)
   enrichedPhone       String?
+  apolloEnrichmentStatus String @default("not_requested")
 
   // Stats LGM (via sync API)
   lgmLeadId           String?

@@ -74,7 +74,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           body: body.toString(),
         });
 
-        if (res.ok) await prisma.jobOffer.update({ where: { id }, data: { lgmSent: true, lgmSentAt: new Date() } });
+        if (res.ok) {
+          let lgmLeadId: string | undefined;
+          try {
+            const json = await res.json();
+            if (json?.id) lgmLeadId = String(json.id);
+          } catch {}
+          await prisma.jobOffer.update({
+            where: { id },
+            data: { lgmSent: true, lgmSentAt: new Date(), ...(lgmLeadId ? { lgmLeadId } : {}) },
+          });
+        }
       } catch (err) {
         console.error("Erreur LGM:", err);
       }

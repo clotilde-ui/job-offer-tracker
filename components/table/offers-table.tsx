@@ -43,6 +43,8 @@ interface JobOffer {
   lgmAudience: string | null;
   phoneLookupRequested: boolean;
   enrichedPhone: string | null;
+  lgmMessagesSent: number | null;
+  lgmEmailOpened: number | null;
   lgmConnectionSentAt: string | null;
   lgmConnectionAcceptedAt: string | null;
   lgmMessage1SentAt: string | null;
@@ -89,6 +91,8 @@ const FIXED_COLUMNS = [
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
   { key: "lgmSent", label: "Envoi dans LGM", defaultWidth: 140 },
+  { key: "lgmMessagesSent", label: "Messages envoyés", defaultWidth: 130 },
+  { key: "lgmEmailOpened", label: "Ouvertures email", defaultWidth: 130 },
   { key: "lgmConnectionSentAt", label: "Connexion envoyée", defaultWidth: 150 },
   { key: "lgmConnectionAcceptedAt", label: "Connexion acceptée", defaultWidth: 155 },
   { key: "lgmMessage1SentAt", label: "Message 1 envoyé", defaultWidth: 150 },
@@ -140,6 +144,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const [showAddField, setShowAddField] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<Set<string>>(new Set());
+  const [syncingLgm, setSyncingLgm] = useState(false);
 
   // Sort & filter
   const [sortBy, setSortBy] = useState("receivedAt");
@@ -335,6 +340,16 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     if (!confirm("Supprimer ce champ ? Les données associées seront perdues.")) return;
     const res = await fetch(`/api/custom-fields/${fieldId}`, { method: "DELETE" });
     if (res.ok) setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
+  }
+
+  async function syncLgmStats() {
+    setSyncingLgm(true);
+    try {
+      await fetch("/api/lgm/sync-stats", { method: "POST" });
+      await fetchOffers();
+    } finally {
+      setSyncingLgm(false);
+    }
   }
 
   async function deleteOffer(id: string) {
@@ -541,6 +556,15 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
             className="text-sm border border-gray-300 px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
           >
             + Champ personnalisé
+          </button>
+
+          <button
+            onClick={() => void syncLgmStats()}
+            disabled={syncingLgm}
+            className="text-sm border border-gray-300 px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors disabled:opacity-50"
+            title="Synchroniser les stats LGM (messages envoyés, ouvertures)"
+          >
+            {syncingLgm ? "Synchro…" : "↻ Stats LGM"}
           </button>
 
           <button
@@ -939,6 +963,28 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                           <span className="text-xs text-brand-green font-semibold whitespace-nowrap">
                             {new Date(offer.lgmSentAt ?? offer.contactedAt ?? "").toLocaleDateString("fr-FR")}
                           </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* lgmMessagesSent */}
+                    {!hiddenColumns.has("lgmMessagesSent") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmMessagesSent != null ? (
+                          <span className="text-sm font-semibold text-brand-dark">{offer.lgmMessagesSent}</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* lgmEmailOpened */}
+                    {!hiddenColumns.has("lgmEmailOpened") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.lgmEmailOpened != null ? (
+                          <span className="text-sm font-semibold text-brand-dark">{offer.lgmEmailOpened}</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}

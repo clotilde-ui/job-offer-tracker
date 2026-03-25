@@ -288,7 +288,7 @@ function GeneralGuide() {
               <p className="font-semibold text-brand-dark">Cocher &quot;Contacter&quot; pour prospecter automatiquement</p>
             </div>
             <p className="text-sm text-gray-700">
-              Si le contact vous semble pertinent, cochez <strong>Contacter</strong> (1ère colonne). Le contact est alors <strong>automatiquement envoyé dans une campagne de prospection</strong>. Vous n&apos;avez rien d&apos;autre à faire.
+              Si le contact vous semble pertinent, cochez <strong>Contacter</strong> (1ère colonne). Le contact est alors <strong>automatiquement envoyé dans une campagne de prospection</strong>. Vous n&apos;avez rien d&apos;autre à faire. La date d&apos;envoi s&apos;affiche automatiquement dans la dernière colonne du tableau.
             </p>
           </div>
         </div>

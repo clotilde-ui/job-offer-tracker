@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ? { enrichedPhone: typeof enrichedPhone === "string" && enrichedPhone.trim() !== "" ? enrichedPhone.trim() : null }
         : {}),
     },
-    select: { id: true, phoneLookupRequested: true, enrichedPhone: true },
+    select: { id: true, phoneLookupRequested: true, enrichedPhone: true, apolloEnrichmentStatus: true },
   });
 
   return NextResponse.json(updated);

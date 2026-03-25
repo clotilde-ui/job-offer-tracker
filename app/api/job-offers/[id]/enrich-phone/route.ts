@@ -47,10 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Clé API Apollo non configurée" }, { status: 500 });
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
-  if (!baseUrl) {
-    console.error("[Apollo] NEXTAUTH_URL non défini — le webhook Apollo ne pourra pas être reçu");
-  }
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? req.nextUrl.origin;
   const webhookUrl = `${baseUrl}/api/webhooks/apollo-phone?contact_id=${id}`;
 
   await prisma.jobOffer.update({

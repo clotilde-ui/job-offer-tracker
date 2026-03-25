@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Payload invalide" }, { status: 400 });
   }
 
+  console.log(`[Apollo webhook] Reçu pour contact_id=${contactId}:`, JSON.stringify(payload));
+
   // Check the offer exists
   const offer = await prisma.jobOffer.findUnique({ where: { id: contactId } });
   if (!offer) return NextResponse.json({ error: "Contact introuvable" }, { status: 404 });
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest) {
   const person = payload?.people?.[0];
 
   if (!person || person.status !== "success") {
+    console.log(`[Apollo webhook] Personne non trouvée ou statut invalide. person.status=${person?.status}`);
     await prisma.jobOffer.update({
       where: { id: contactId },
       data: { apolloEnrichmentStatus: "failed" },
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   const phoneNumbers = person.phone_numbers ?? [];
   const phone = phoneNumbers[0]?.sanitized_number ?? null;
+  console.log(`[Apollo webhook] ${phoneNumbers.length} numéro(s) trouvé(s). Premier: ${phone}`);
 
   await prisma.jobOffer.update({
     where: { id: contactId },

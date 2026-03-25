@@ -197,8 +197,8 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     return () => document.removeEventListener("mousedown", handler);
   }, [showColumnMenu]);
 
-  const fetchOffers = useCallback(async () => {
-    setLoading(true);
+  const fetchOffers = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -216,10 +216,12 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
       setTotal(json.total ?? 0);
       setStats(json.stats ?? null);
     } catch {
-      setOffers([]);
-      setTotal(0);
+      if (!silent) {
+        setOffers([]);
+        setTotal(0);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, search, sortBy, sortDir, filterStatuses, targetWorkspaceId]);
 
@@ -231,7 +233,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   useEffect(() => {
     const hasPending = offers.some((o) => o.apolloEnrichmentStatus === "pending");
     if (!hasPending) return;
-    const interval = setInterval(() => { void fetchOffers(); }, 10000);
+    const interval = setInterval(() => { void fetchOffers({ silent: true }); }, 10000);
     return () => clearInterval(interval);
   }, [offers, fetchOffers]);
 
@@ -368,7 +370,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     setSyncingLgm(true);
     try {
       await fetch("/api/lgm/sync-stats", { method: "POST" });
-      await fetchOffers();
+      await fetchOffers({ silent: true });
     } finally {
       setSyncingLgm(false);
     }

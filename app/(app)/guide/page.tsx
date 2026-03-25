@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Filter, Eye, Phone, Download, UserCheck } from "lucide-react";
+import { ChevronDown, Filter, Eye, Phone, Download, UserCheck, CheckCircle2, XCircle, PhoneCall, Zap } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 interface Section {
@@ -250,6 +250,89 @@ const sections: Section[] = [
   },
 ];
 
+function GeneralGuide() {
+  return (
+    <div className="mb-10">
+      <div className="bg-brand-dark text-white px-6 py-5 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Zap size={18} className="text-brand-pink" />
+          <h2 className="text-base font-semibold">Comment ça fonctionne ?</h2>
+        </div>
+        <p className="text-sm text-gray-300">
+          Tout ce que vous avez à faire au quotidien tient en 3 actions simples.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {/* Step 0 - daily context */}
+        <div className="flex gap-4 p-5 border border-gray-200 bg-white">
+          <div className="flex-shrink-0 w-8 h-8 bg-gray-100 text-brand-dark font-bold text-sm flex items-center justify-center">
+            1
+          </div>
+          <div>
+            <p className="font-semibold text-brand-dark mb-1">Chaque jour, de nouvelles offres apparaissent</p>
+            <p className="text-sm text-gray-600">
+              Le fichier se met à jour automatiquement avec de nouvelles offres d&apos;emploi et le contact associé à chaque offre. Consultez le tableau chaque matin pour voir les nouvelles lignes.
+            </p>
+          </div>
+        </div>
+
+        {/* Step 1 - contacter */}
+        <div className="flex gap-4 p-5 border border-green-200 bg-green-50">
+          <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white font-bold text-sm flex items-center justify-center">
+            2
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 size={16} className="text-green-600" />
+              <p className="font-semibold text-brand-dark">Cocher &quot;Contacter&quot; pour prospecter automatiquement</p>
+            </div>
+            <p className="text-sm text-gray-700">
+              Si le contact vous semble pertinent, cochez <strong>Contacter</strong> (1ère colonne). Le contact est alors <strong>automatiquement envoyé dans une campagne de prospection</strong>. Vous n&apos;avez rien d&apos;autre à faire.
+            </p>
+          </div>
+        </div>
+
+        {/* Step 2 - ne pas contacter */}
+        <div className="flex gap-4 p-5 border border-red-200 bg-red-50">
+          <div className="flex-shrink-0 w-8 h-8 bg-red-400 text-white font-bold text-sm flex items-center justify-center">
+            3
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <XCircle size={16} className="text-red-500" />
+              <p className="font-semibold text-brand-dark">Cocher &quot;Ne pas contacter&quot; pour écarter le contact</p>
+            </div>
+            <p className="text-sm text-gray-700">
+              Si le contact n&apos;est pas qualifié, cochez simplement <strong>Ne pas contacter</strong>. Il ne sera pas inclus dans la campagne et sera mis de côté.
+            </p>
+          </div>
+        </div>
+
+        {/* Step 3 - chercher tel */}
+        <div className="flex gap-4 p-5 border border-blue-200 bg-blue-50">
+          <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white font-bold text-sm flex items-center justify-center">
+            +
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <PhoneCall size={16} className="text-blue-600" />
+              <p className="font-semibold text-brand-dark">En option : cocher &quot;Chercher tél&quot; pour prospecter par téléphone</p>
+            </div>
+            <p className="text-sm text-gray-700">
+              Si vous souhaitez également appeler le contact (en complément de la campagne), cochez <strong>Chercher tél</strong>. Le numéro de téléphone s&apos;affichera automatiquement au bout de quelques secondes. C&apos;est ensuite à vous d&apos;appeler le prospect.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 px-4 py-3 bg-gray-50 border border-gray-200 text-xs text-gray-500">
+        Les explications détaillées sur les filtres, colonnes et autres fonctionnalités sont disponibles dans les sections ci-dessous.
+      </div>
+    </div>
+  );
+}
+
 export default function GuidePage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -264,6 +347,12 @@ export default function GuidePage() {
         <p className="text-sm text-gray-500 mt-1">
           Retrouvez ici les explications pour utiliser les principales fonctionnalités de l&apos;outil.
         </p>
+      </div>
+
+      <GeneralGuide />
+
+      <div className="mb-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Fonctionnalités avancées</p>
       </div>
 
       <div className="space-y-2">

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "@/lib/cn";
 import { AddCustomFieldModal } from "@/components/forms/add-custom-field-modal";
+import { EditCustomFieldPromptModal } from "@/components/forms/edit-custom-field-prompt-modal";
 
 interface CustomField {
   id: string;
@@ -143,6 +144,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const [loading, setLoading] = useState(true);
   const [customFields, setCustomFields] = useState<CustomField[]>(initialCustomFields);
   const [showAddField, setShowAddField] = useState(false);
+  const [editingPromptField, setEditingPromptField] = useState<CustomField | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<Set<string>>(new Set());
   const [syncingLgm, setSyncingLgm] = useState(false);
@@ -663,6 +665,15 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {field.type === "AI" && <span title="Champ IA">⚡</span>}
                     {field.type === "FORMULA" && <span title="Champ formule">ƒ</span>}
                     {field.label}
+                    {(field.type === "AI" || field.type === "FORMULA") && (
+                      <button
+                        onClick={() => setEditingPromptField(field)}
+                        className="text-white/30 hover:text-white ml-1 text-xs"
+                        title={field.type === "AI" ? "Modifier le prompt IA" : "Modifier la formule"}
+                      >
+                        ✎
+                      </button>
+                    )}
                     <button
                       onClick={() => deleteCustomField(field.id)}
                       className="text-white/30 hover:text-red-400 ml-1 text-xs"
@@ -1163,6 +1174,20 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
             setShowAddField(false);
           }}
           existingCustomFields={customFields.map((f) => ({ name: f.name, label: f.label }))}
+        />
+      )}
+
+      {editingPromptField && (
+        <EditCustomFieldPromptModal
+          field={editingPromptField}
+          existingCustomFields={customFields.map((f) => ({ name: f.name, label: f.label }))}
+          onClose={() => setEditingPromptField(null)}
+          onUpdated={(updated) => {
+            setCustomFields((prev) =>
+              prev.map((f) => (f.id === updated.id ? { ...f, formula: updated.formula } : f))
+            );
+            setEditingPromptField(null);
+          }}
         />
       )}
     </div>

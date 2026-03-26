@@ -294,6 +294,17 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     );
   }
 
+  async function updateLeadField(offerId: string, field: "leadCivility" | "leadFirstName" | "leadLastName", value: string | null) {
+    await fetch(`/api/job-offers/${offerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    setOffers((prev) =>
+      prev.map((o) => (o.id === offerId ? { ...o, [field]: value } : o))
+    );
+  }
+
   async function generateAIValue(offerId: string, field: CustomField) {
     const key = `${offerId}-${field.id}`;
     setAiGenerating((prev) => new Set([...prev, key]));
@@ -907,17 +918,43 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
 
                     {/* leadCivility */}
                     {!hiddenColumns.has("leadCivility") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadCivility ?? "—"}</td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={offer.leadCivility ?? ""}
+                          onChange={(e) => updateLeadField(offer.id, "leadCivility", e.target.value || null)}
+                          className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
+                        >
+                          <option value="">—</option>
+                          <option value="M.">M.</option>
+                          <option value="Mme">Mme</option>
+                        </select>
+                      </td>
                     )}
 
                     {/* leadFirstName */}
                     {!hiddenColumns.has("leadFirstName") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">{toProperCase(offer.leadFirstName) ?? "—"}</td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          defaultValue={offer.leadFirstName ?? ""}
+                          onBlur={(e) => updateLeadField(offer.id, "leadFirstName", e.target.value || null)}
+                          placeholder="—"
+                          className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
+                        />
+                      </td>
                     )}
 
                     {/* leadLastName */}
                     {!hiddenColumns.has("leadLastName") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">{toProperCase(offer.leadLastName) ?? "—"}</td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          defaultValue={offer.leadLastName ?? ""}
+                          onBlur={(e) => updateLeadField(offer.id, "leadLastName", e.target.value || null)}
+                          placeholder="—"
+                          className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
+                        />
+                      </td>
                     )}
 
                     {/* leadEmail */}
@@ -1344,15 +1381,17 @@ function CustomFieldCell({
     return <span className="text-sm text-gray-600">{result || "—"}</span>;
   }
 
-  // AI: stored value + generate button
+  // AI: editable stored value + generate button
   if (field.type === "AI") {
     return (
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className="text-sm text-gray-600 truncate flex-1">
-          {value != null && String(value) !== "" ? String(value) : (
-            <span className="text-gray-300">—</span>
-          )}
-        </span>
+        <input
+          type="text"
+          defaultValue={value != null ? String(value) : ""}
+          onBlur={(e) => onChange(e.target.value || null)}
+          placeholder="—"
+          className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink flex-1 min-w-0"
+        />
         <button
           onClick={onGenerate}
           disabled={aiLoading}

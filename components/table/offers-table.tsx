@@ -53,6 +53,7 @@ interface JobOffer {
   lgmRepliedAt: string | null;
   lgmReplyContent: string | null;
   customValues: Record<string, unknown>;
+  duplicateWarning: string | null;
 }
 
 interface Stats {
@@ -472,6 +473,26 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const visibleFixed = FIXED_COLUMNS.filter((c) => !hiddenColumns.has(c.key));
   const visibleCustom = customFields.filter((f) => !hiddenColumns.has(f.id));
   const visibleCount = visibleFixed.length + visibleCustom.length + 1; // +1 for delete col
+
+  // Build a map of normalized linkedin URL → list of offers (for dynamic duplicate detection)
+  const linkedinGroupMap = new Map<string, JobOffer[]>();
+  for (const o of offers) {
+    if (o.leadLinkedin) {
+      const key = o.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+      const group = linkedinGroupMap.get(key) ?? [];
+      group.push(o);
+      linkedinGroupMap.set(key, group);
+    }
+  }
+  function computeDuplicateWarning(offer: JobOffer): string | null {
+    if (!offer.leadLinkedin) return null;
+    const key = offer.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+    const siblings = (linkedinGroupMap.get(key) ?? []).filter((o) => o.id !== offer.id);
+    if (siblings.length === 0) return null;
+    if (siblings.some((s) => s.doNotContact)) return "do_not_contact";
+    if (siblings.some((s) => s.toContact || s.contactedAt)) return "contacted";
+    return "imported";
+  }
 
   const allColumnsForMenu = [
     ...FIXED_COLUMNS,
@@ -906,6 +927,9 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>
+                            {computeDuplicateWarning(offer) && (
+                              <DuplicateBadge warning={computeDuplicateWarning(offer)!} />
+                            )}
                             {offer.leadLinkedin && (
                               <a
                                 href={offer.leadLinkedin}
@@ -1236,6 +1260,20 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
         />
       )}
     </div>
+  );
+}
+
+function DuplicateBadge({ warning }: { warning: string }) {
+  const config = {
+    imported: { label: "déjà importé", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+    contacted: { label: "déjà contacté", className: "bg-blue-100 text-blue-700 border-blue-200" },
+    do_not_contact: { label: "ne pas contacter", className: "bg-red-100 text-red-600 border-red-200" },
+  }[warning] ?? { label: "doublon", className: "bg-gray-100 text-gray-500 border-gray-200" };
+
+  return (
+    <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border mt-0.5 mb-0.5 ${config.className}`}>
+      {config.label}
+    </span>
   );
 }
 

@@ -31,6 +31,10 @@ function sanitizeUrl(value: unknown): string | null {
   }
 }
 
+function normalizeLinkedinUrl(url: string): string {
+  return url.toLowerCase().replace(/\/+$/, "").trim();
+}
+
 function sanitizeString(value: unknown, maxLength = 1000): string | null {
   if (value === null || value === undefined || value === "") return null;
   return String(value).slice(0, maxLength);
@@ -78,6 +82,26 @@ export async function POST(
 
   const created = await Promise.all(
     leads.map(async (lead: Record<string, unknown>) => {
+      const leadLinkedin = sanitizeUrl(lead.lead_linkedin);
+
+      let duplicateWarning: string | null = null;
+      if (leadLinkedin) {
+        const normalized = normalizeLinkedinUrl(leadLinkedin);
+        // SQLite doesn't support case-insensitive URL comparison, so filter in JS
+        const existingOffers = await prisma.jobOffer.findMany({
+          where: { workspaceId: workspace.id, leadLinkedin: { not: null } },
+          select: { toContact: true, contactedAt: true, doNotContact: true, leadLinkedin: true },
+        });
+        const match = existingOffers.find(
+          (o) => o.leadLinkedin && normalizeLinkedinUrl(o.leadLinkedin) === normalized
+        );
+        if (match) {
+          if (match.doNotContact) duplicateWarning = "do_not_contact";
+          else if (match.toContact || match.contactedAt) duplicateWarning = "contacted";
+          else duplicateWarning = "imported";
+        }
+      }
+
       return prisma.jobOffer.create({
         data: {
           workspaceId: workspace.id,
@@ -99,8 +123,9 @@ export async function POST(
           leadLastName: sanitizeString(lead.lead_last_name, 100),
           leadEmail: sanitizeString(lead.lead_email, 254),
           leadJobTitle: sanitizeString(lead.lead_job_title, 200),
-          leadLinkedin: sanitizeUrl(lead.lead_linkedin),
+          leadLinkedin,
           leadPhone: sanitizeString(lead.lead_phones, 50),
+          duplicateWarning,
         },
       });
     })

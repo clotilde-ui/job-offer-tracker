@@ -53,6 +53,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         body.set("audience", targetAudience);
         if (offer.leadFirstName) body.set("firstname", offer.leadFirstName);
         if (offer.leadLastName) body.set("lastname", offer.leadLastName);
+        if (offer.leadCivility) {
+          const lower = offer.leadCivility.trim().toLowerCase();
+          const gender = (lower === "mme" || lower === "madame") ? "woman" : "man";
+          body.set("gender", gender);
+        }
         if (offer.leadEmail) body.set("proEmail", offer.leadEmail);
         if (offer.leadPhone) body.set("phone", offer.leadPhone);
         if (offer.leadLinkedin) body.set("linkedinUrl", offer.leadLinkedin);

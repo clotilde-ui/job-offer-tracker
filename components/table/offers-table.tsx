@@ -117,6 +117,14 @@ function toProperCase(str: string | null | undefined): string | null | undefined
   return str.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
 
+function normalizeCivility(civility: string | null | undefined): string | null {
+  if (!civility) return null;
+  const lower = civility.trim().toLowerCase();
+  if (lower === "m" || lower === "m." || lower === "mr" || lower === "mr." || lower === "monsieur") return "M.";
+  if (lower === "mme" || lower === "madame" || lower === "ms" || lower === "ms." || lower === "mrs" || lower === "mrs.") return "Mme";
+  return civility;
+}
+
 function stickyBg(offer: JobOffer): string {
   if (offer.doNotContact) return "#fef2f2"; // red-50 opaque
   if (offer.toContact) return "#e9f8ec"; // brand-green/10 over white, opaque
@@ -894,7 +902,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                         {offer.leadFirstName || offer.leadLastName ? (
                           <div>
                             <div className="font-medium truncate text-brand-dark">
-                              {[offer.leadCivility, toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
+                              {[normalizeCivility(offer.leadCivility), toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>

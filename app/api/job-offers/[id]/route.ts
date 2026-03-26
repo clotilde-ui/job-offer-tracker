@@ -3,6 +3,39 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const ALLOWED_LEAD_FIELDS = ["leadCivility", "leadFirstName", "leadLastName"] as const;
+type AllowedLeadField = typeof ALLOWED_LEAD_FIELDS[number];
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const { id } = await params;
+  const offer = await prisma.jobOffer.findUnique({ where: { id } });
+  if (!offer) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+
+  if (session.user.role !== "ADMIN" && offer.workspaceId !== session.user.workspaceId) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const data: Partial<Record<AllowedLeadField, string | null>> = {};
+
+  for (const field of ALLOWED_LEAD_FIELDS) {
+    if (field in body) {
+      const val = body[field];
+      data[field] = typeof val === "string" && val.trim() !== "" ? val.trim() : null;
+    }
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Aucun champ valide à mettre à jour" }, { status: 400 });
+  }
+
+  const updated = await prisma.jobOffer.update({ where: { id }, data });
+  return NextResponse.json(updated);
+}
+
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });

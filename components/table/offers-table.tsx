@@ -53,6 +53,7 @@ interface JobOffer {
   lgmRepliedAt: string | null;
   lgmReplyContent: string | null;
   customValues: Record<string, unknown>;
+  duplicateWarning: string | null;
 }
 
 interface Stats {
@@ -906,6 +907,9 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>
+                            {offer.duplicateWarning && (
+                              <DuplicateBadge warning={offer.duplicateWarning} />
+                            )}
                             {offer.leadLinkedin && (
                               <a
                                 href={offer.leadLinkedin}
@@ -1236,6 +1240,20 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
         />
       )}
     </div>
+  );
+}
+
+function DuplicateBadge({ warning }: { warning: string }) {
+  const config = {
+    imported: { label: "déjà importé", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+    contacted: { label: "déjà contacté", className: "bg-blue-100 text-blue-700 border-blue-200" },
+    do_not_contact: { label: "ne pas contacter", className: "bg-red-100 text-red-600 border-red-200" },
+  }[warning] ?? { label: "doublon", className: "bg-gray-100 text-gray-500 border-gray-200" };
+
+  return (
+    <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border mt-0.5 mb-0.5 ${config.className}`}>
+      {config.label}
+    </span>
   );
 }
 

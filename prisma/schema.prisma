@@ -144,6 +144,9 @@ model JobOffer {
   // Champs personnalisés (JSON stocké en texte pour SQLite)
   customValues        String    @default("{}")
 
+  // Doublon détecté à l'import (basé sur leadLinkedin)
+  duplicateWarning    String?
+
   workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])

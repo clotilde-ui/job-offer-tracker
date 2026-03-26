@@ -96,5 +96,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Cascade duplicateWarning to all offers sharing the same linkedinUrl
+  if (offer.leadLinkedin) {
+    const normalized = offer.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+    const candidates = await prisma.jobOffer.findMany({
+      where: { workspaceId: offer.workspaceId, leadLinkedin: { not: null } },
+      select: { id: true, leadLinkedin: true, toContact: true, doNotContact: true, contactedAt: true },
+    });
+    const group = candidates.filter(
+      (o) => o.leadLinkedin && o.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim() === normalized
+    );
+    if (group.length > 1) {
+      await Promise.all(
+        group.map((o) => {
+          const siblings = group.filter((s) => s.id !== o.id);
+          let warning: string | null = null;
+          if (siblings.some((s) => s.doNotContact)) warning = "do_not_contact";
+          else if (siblings.some((s) => s.toContact || s.contactedAt)) warning = "contacted";
+          else warning = "imported";
+          return prisma.jobOffer.update({ where: { id: o.id }, data: { duplicateWarning: warning } });
+        })
+      );
+    }
+  }
+
   return NextResponse.json(updated);
 }

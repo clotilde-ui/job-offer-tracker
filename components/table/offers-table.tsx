@@ -474,6 +474,26 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const visibleCustom = customFields.filter((f) => !hiddenColumns.has(f.id));
   const visibleCount = visibleFixed.length + visibleCustom.length + 1; // +1 for delete col
 
+  // Build a map of normalized linkedin URL → list of offers (for dynamic duplicate detection)
+  const linkedinGroupMap = new Map<string, JobOffer[]>();
+  for (const o of offers) {
+    if (o.leadLinkedin) {
+      const key = o.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+      const group = linkedinGroupMap.get(key) ?? [];
+      group.push(o);
+      linkedinGroupMap.set(key, group);
+    }
+  }
+  function computeDuplicateWarning(offer: JobOffer): string | null {
+    if (!offer.leadLinkedin) return null;
+    const key = offer.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+    const siblings = (linkedinGroupMap.get(key) ?? []).filter((o) => o.id !== offer.id);
+    if (siblings.length === 0) return null;
+    if (siblings.some((s) => s.doNotContact)) return "do_not_contact";
+    if (siblings.some((s) => s.toContact || s.contactedAt)) return "contacted";
+    return "imported";
+  }
+
   const allColumnsForMenu = [
     ...FIXED_COLUMNS,
     ...customFields.map((f) => ({ key: f.id, label: f.label, defaultWidth: CUSTOM_FIELD_DEFAULT_WIDTH })),
@@ -907,8 +927,8 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>
-                            {offer.duplicateWarning && (
-                              <DuplicateBadge warning={offer.duplicateWarning} />
+                            {computeDuplicateWarning(offer) && (
+                              <DuplicateBadge warning={computeDuplicateWarning(offer)!} />
                             )}
                             {offer.leadLinkedin && (
                               <a

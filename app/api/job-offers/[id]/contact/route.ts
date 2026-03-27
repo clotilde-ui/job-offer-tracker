@@ -59,11 +59,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         try {
           const customValues = JSON.parse(offer.customValues || "{}");
           const emeliCustom: Record<string, string> = {};
+          const emeliaReservedCustomFields = new Set(["Entreprise", "Civilite", "Posteclean"]);
           for (const field of customFields) {
             if (!field.emeliAttribute) continue;
             const val = customValues[field.name];
-            if (val != null && val !== "") emeliCustom[field.emeliAttribute] = String(val);
+            if (val == null || val === "") continue;
+            if (emeliaReservedCustomFields.has(field.emeliAttribute)) continue;
+            emeliCustom[field.emeliAttribute] = String(val);
           }
+
+          if (offer.company) emeliCustom.Entreprise = offer.company;
+          if (offer.leadCivility) emeliCustom.Civilite = offer.leadCivility;
+          const postCleanValue = customValues["Post clean"];
+          if (postCleanValue != null && postCleanValue !== "") emeliCustom.Posteclean = String(postCleanValue);
 
           const contactPayload: Record<string, unknown> = {
             id: targetAudience,

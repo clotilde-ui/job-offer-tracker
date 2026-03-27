@@ -97,8 +97,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           const contactPayload: Record<string, unknown> = {
             ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
             ...(offer.leadLastName && { lastName: offer.leadLastName }),
+            // Email is optional: allow sending a lead without email.
             ...(offer.leadEmail && { email: offer.leadEmail }),
+            // Keep both keys for compatibility across Emelia account/API variants.
             ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+            ...(offer.leadLinkedin && { linkedinUrl: offer.leadLinkedin }),
             ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
           };
 

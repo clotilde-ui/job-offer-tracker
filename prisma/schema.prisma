@@ -40,8 +40,10 @@ model Workspace {
   geminiApiKey   String?
   groqApiKey     String?
   openaiApiKey   String?
-  mantiksApiKey  String?
-  apolloApiKey   String?
+  mantiksApiKey             String?
+  apolloApiKey              String?
+  phoneEnrichmentProvider   String?  @default("apollo")
+  derrickApiKey             String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 

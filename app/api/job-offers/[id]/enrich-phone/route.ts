@@ -40,20 +40,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const workspace = await prisma.workspace.findUnique({
     where: { id: offer.workspaceId },
-    select: { apolloApiKey: true },
+    select: { apolloApiKey: true, phoneEnrichmentProvider: true, derrickApiKey: true },
   });
-  const apolloApiKey = workspace?.apolloApiKey ?? process.env.APOLLO_API_KEY;
-  if (!apolloApiKey) {
-    return NextResponse.json({ error: "Clé API Apollo non configurée" }, { status: 500 });
-  }
 
-  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? req.nextUrl.origin;
-  const webhookUrl = `${baseUrl}/api/webhooks/apollo-phone?contact_id=${id}`;
+  const provider = workspace?.phoneEnrichmentProvider ?? "apollo";
 
   await prisma.jobOffer.update({
     where: { id },
     data: { apolloEnrichmentStatus: "pending" },
   });
+
+  if (provider === "derrick") {
+    const derrickApiKey = workspace?.derrickApiKey ?? process.env.DERRICK_API_KEY;
+    if (!derrickApiKey) {
+      await prisma.jobOffer.update({ where: { id }, data: { apolloEnrichmentStatus: "failed" } });
+      return NextResponse.json({ error: "Clé API Derrick non configurée" }, { status: 500 });
+    }
+
+    console.log(`[Derrick] Envoi enrichissement — linkedin: ${linkedinUrl}`);
+    // TODO: implémenter l'appel API Derrick une fois la doc reçue
+    await prisma.jobOffer.update({ where: { id }, data: { apolloEnrichmentStatus: "failed" } });
+    return NextResponse.json({ error: "Intégration Derrick non encore implémentée" }, { status: 501 });
+  }
+
+  // Provider: apollo (default)
+  const apolloApiKey = workspace?.apolloApiKey ?? process.env.APOLLO_API_KEY;
+  if (!apolloApiKey) {
+    await prisma.jobOffer.update({ where: { id }, data: { apolloEnrichmentStatus: "failed" } });
+    return NextResponse.json({ error: "Clé API Apollo non configurée" }, { status: 500 });
+  }
+
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? req.nextUrl.origin;
+  const webhookUrl = `${baseUrl}/api/webhooks/apollo-phone?contact_id=${id}`;
 
   console.log(`[Apollo] Envoi enrichissement — linkedin: ${linkedinUrl} — webhook: ${webhookUrl}`);
 

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-/** Normalise une URL LinkedIn au format strict attendu par Apollo.
+/** Normalise une URL LinkedIn.
  *  Ex: "https://www.linkedin.com/in/jean-dupont/?trk=xxx" → "https://www.linkedin.com/in/jean-dupont"
  */
 function normalizeLinkedinUrl(raw: string): string | null {
@@ -58,9 +58,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     console.log(`[Derrick] Envoi enrichissement — linkedin: ${linkedinUrl}`);
-    // TODO: implémenter l'appel API Derrick une fois la doc reçue
-    await prisma.jobOffer.update({ where: { id }, data: { apolloEnrichmentStatus: "failed" } });
-    return NextResponse.json({ error: "Intégration Derrick non encore implémentée" }, { status: 501 });
+
+    try {
+      const res = await fetch("https://app1.derrick-app.com/api/v1/find_phone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": derrickApiKey,
+        },
+        body: JSON.stringify({ data: { linkedinProfilUrl: linkedinUrl } }),
+      });
+
+      const responseBody = await res.json().catch(() => null);
+      console.log(`[Derrick] Réponse HTTP ${res.status}:`, JSON.stringify(responseBody));
+
+      if (!res.ok || !responseBody?.success) {
+        await prisma.jobOffer.update({ where: { id }, data: { apolloEnrichmentStatus: "failed" } });
+        return NextResponse.json({ error: "Erreur Derrick API", detail: responseBody }, { status: 502 });
+      }
+
+      const phone = responseBody.data?.number ?? null;
+      await prisma.jobOffer.update({
+        where: { id },
+        data: {
+          enrichedPhone: phone,
+          apolloEnrichmentStatus: phone ? "success" : "failed",
+        },
+      });
+
+      return NextResponse.json({ success: true, phone });
+    } catch (err) {
+      console.error("[Derrick] Erreur de connexion:", err);
+      await prisma.jobOffer.update({ where: { id }, data: { apolloEnrichmentStatus: "failed" } });
+      return NextResponse.json({ error: "Erreur de connexion à Derrick" }, { status: 502 });
+    }
   }
 
   // Provider: apollo (default)

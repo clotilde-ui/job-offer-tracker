@@ -5,6 +5,25 @@ import { prisma } from "@/lib/prisma";
 
 type ContactStatus = "qualify" | "contact" | "doNotContact";
 
+function extractEmeliaCampaignId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // Accept direct campaign id
+  if (/^[a-f0-9]{24}$/i.test(trimmed)) return trimmed;
+
+  // Accept full app URL, e.g. https://app.emelia.io/advanced/<id>/settings
+  try {
+    const url = new URL(trimmed);
+    const match = url.pathname.match(/\/advanced\/([a-f0-9]{24})(?:\/|$)/i);
+    if (match?.[1]) return match[1];
+  } catch {
+    // ignore parse errors
+  }
+
+  return null;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -41,6 +60,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const prospectingProvider = workspace?.prospectingProvider ?? "lgm";
 
     let targetAudience = audience ?? null;
+    let providerError: string | null = null;
 
     if (prospectingProvider === "emelia") {
       if (!targetAudience && workspace?.emeliaCampaigns) {
@@ -50,54 +70,88 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         } catch {}
       }
 
-      if (workspace?.emeliApiKey && targetAudience) {
+      const campaignId = targetAudience ? extractEmeliaCampaignId(targetAudience) : null;
+
+      if (!workspace?.emeliApiKey) {
+        providerError = "Clé API Emelia manquante dans les paramètres workspace.";
+      } else if (!campaignId) {
+        providerError = "Campagne Emelia invalide (ID attendu ou URL app.emelia.io/advanced/<id>/...).";
+      } else {
         try {
           const customValues = JSON.parse(offer.customValues || "{}");
           const emeliCustom: Record<string, string> = {};
+          const emeliaReservedCustomFields = new Set(["Entreprise", "Civilite", "Posteclean"]);
           for (const field of customFields) {
             if (!field.emeliAttribute) continue;
             const val = customValues[field.name];
-            if (val != null && val !== "") emeliCustom[field.emeliAttribute] = String(val);
+            if (val == null || val === "") continue;
+            if (emeliaReservedCustomFields.has(field.emeliAttribute)) continue;
+            emeliCustom[field.emeliAttribute] = String(val);
           }
 
+          if (offer.company) emeliCustom.Entreprise = offer.company;
+          if (offer.leadCivility) emeliCustom.Civilite = offer.leadCivility;
+          const postCleanValue = customValues["Post clean"];
+          if (postCleanValue != null && postCleanValue !== "") emeliCustom.Posteclean = String(postCleanValue);
+
           const contactPayload: Record<string, unknown> = {
-            id: targetAudience,
-            contact: {
-              ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
-              ...(offer.leadLastName && { lastName: offer.leadLastName }),
-              ...(offer.leadEmail && { email: offer.leadEmail }),
-              ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
-              ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
-            },
+            ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
+            ...(offer.leadLastName && { lastName: offer.leadLastName }),
+            ...(offer.leadEmail && { email: offer.leadEmail }),
+            ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+            ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
           };
 
-          console.log(`[Emelia] Envoi contact — campagne: ${targetAudience}`);
+          console.log(`[Emelia] Envoi contact — campagne: ${campaignId}`);
 
-          const res = await fetch(`https://api.emelia.io/v1/lists/${encodeURIComponent(targetAudience)}/contacts`, {
+          const res = await fetch("https://graphql.emelia.io/graphql", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Authorization": workspace.emeliApiKey,
             },
-            body: JSON.stringify(contactPayload),
+            body: JSON.stringify({
+              query: `
+                mutation addContactToCampaignHook($id: ID!, $contact: JSON!) {
+                  addContactToCampaignHook(id: $id, contact: $contact)
+                }
+              `,
+              variables: {
+                id: campaignId,
+                contact: contactPayload,
+              },
+            }),
           });
 
           if (res.ok) {
             let emeliContactId: string | undefined;
             try {
               const json = await res.json();
-              if (json?.contactId) emeliContactId = String(json.contactId);
+              if (Array.isArray(json?.errors) && json.errors.length > 0) {
+                const firstError = json.errors[0]?.message;
+                providerError = firstError
+                  ? `Emelia: ${String(firstError)}`
+                  : "Emelia a renvoyé une erreur GraphQL.";
+              } else if (json?.data?.addContactToCampaignHook) {
+                emeliContactId = String(json.data.addContactToCampaignHook);
+              }
             } catch {}
-            await prisma.jobOffer.update({
-              where: { id },
-              data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
-            });
+            if (!providerError) {
+              await prisma.jobOffer.update({
+                where: { id },
+                data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
+              });
+            }
           } else {
             const detail = await res.json().catch(() => null);
             console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);
+            providerError = detail?.message
+              ? `Emelia: ${String(detail.message)}`
+              : `Emelia a répondu avec une erreur HTTP ${res.status}.`;
           }
         } catch (err) {
           console.error("[Emelia] Erreur de connexion:", err);
+          providerError = "Erreur de connexion à Emelia.";
         }
       }
     } else {
@@ -157,6 +211,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           console.error("Erreur LGM:", err);
         }
       }
+    }
+
+    if (providerError) {
+      return NextResponse.json({ error: providerError }, { status: 502 });
     }
   }
 

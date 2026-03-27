@@ -41,6 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const prospectingProvider = workspace?.prospectingProvider ?? "lgm";
 
     let targetAudience = audience ?? null;
+    let providerError: string | null = null;
 
     if (prospectingProvider === "emelia") {
       if (!targetAudience && workspace?.emeliaCampaigns) {
@@ -50,7 +51,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         } catch {}
       }
 
-      if (workspace?.emeliApiKey && targetAudience) {
+      if (!workspace?.emeliApiKey) {
+        providerError = "Clé API Emelia manquante dans les paramètres workspace.";
+      } else if (!targetAudience) {
+        providerError = "Aucune campagne Emelia configurée/sélectionnée.";
+      } else {
         try {
           const customValues = JSON.parse(offer.customValues || "{}");
           const emeliCustom: Record<string, string> = {};
@@ -95,9 +100,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           } else {
             const detail = await res.json().catch(() => null);
             console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);
+            providerError = detail?.message
+              ? `Emelia: ${String(detail.message)}`
+              : `Emelia a répondu avec une erreur HTTP ${res.status}.`;
           }
         } catch (err) {
           console.error("[Emelia] Erreur de connexion:", err);
+          providerError = "Erreur de connexion à Emelia.";
         }
       }
     } else {
@@ -157,6 +166,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           console.error("Erreur LGM:", err);
         }
       }
+    }
+
+    if (providerError) {
+      return NextResponse.json({ error: providerError }, { status: 502 });
     }
   }
 

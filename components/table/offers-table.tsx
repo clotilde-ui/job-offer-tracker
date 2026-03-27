@@ -121,8 +121,8 @@ function toProperCase(str: string | null | undefined): string | null | undefined
 function normalizeCivility(civility: string | null | undefined): string | null {
   if (!civility) return null;
   const lower = civility.trim().toLowerCase();
-  if (lower === "m" || lower === "m." || lower === "mr" || lower === "mr." || lower === "monsieur") return "M.";
-  if (lower === "mme" || lower === "madame" || lower === "ms" || lower === "ms." || lower === "mrs" || lower === "mrs.") return "Mme";
+  if (lower === "m" || lower === "m." || lower === "mr" || lower === "mr." || lower === "monsieur") return "Monsieur";
+  if (lower === "mme" || lower === "madame" || lower === "ms" || lower === "ms." || lower === "mrs" || lower === "mrs.") return "Madame";
   return civility;
 }
 
@@ -285,8 +285,12 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
 
     // Revert si erreur
     if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
       setOffers((prev) => prev.map((o) => (o.id === id ? prevOffer : o)));
       if (stats) setStats(stats);
+      if (errorData?.error) {
+        alert(String(errorData.error));
+      }
     }
   }
 
@@ -923,24 +927,28 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                         {offer.leadFirstName || offer.leadLastName ? (
                           <div>
                             <div className="font-medium truncate text-brand-dark">
-                              {[normalizeCivility(offer.leadCivility), toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
+                              {[toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>
-                            {computeDuplicateWarning(offer) && (
-                              <DuplicateBadge warning={computeDuplicateWarning(offer)!} />
-                            )}
-                            {offer.leadLinkedin && (
-                              <a
-                                href={offer.leadLinkedin}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs text-brand-dark underline hover:text-brand-pink"
-                              >
-                                LinkedIn
-                              </a>
-                            )}
+                            <div className="mt-0.5">
+                              {offer.leadLinkedin && (
+                                <a
+                                  href={offer.leadLinkedin}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="block text-xs text-brand-dark underline hover:text-brand-pink"
+                                >
+                                  LinkedIn
+                                </a>
+                              )}
+                              {computeDuplicateWarning(offer) && (
+                                <div className="flex justify-center mt-0.5">
+                                  <DuplicateBadge warning={computeDuplicateWarning(offer)!} />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -951,15 +959,26 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {/* leadCivility */}
                     {!hiddenColumns.has("leadCivility") && (
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={offer.leadCivility ?? ""}
-                          onChange={(e) => updateLeadField(offer.id, "leadCivility", e.target.value || null)}
-                          className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
-                        >
-                          <option value="">—</option>
-                          <option value="M.">M.</option>
-                          <option value="Mme">Mme</option>
-                        </select>
+                        <div className="flex items-center gap-1">
+                          {!normalizeCivility(offer.leadCivility) && (
+                            <span
+                              className="text-red-600 text-xs"
+                              title="Civilité manquante"
+                              aria-label="Civilité manquante"
+                            >
+                              ⚠️
+                            </span>
+                          )}
+                          <select
+                            value={normalizeCivility(offer.leadCivility) ?? ""}
+                            onChange={(e) => updateLeadField(offer.id, "leadCivility", e.target.value || null)}
+                            className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
+                          >
+                            <option value="">—</option>
+                            <option value="Monsieur">Monsieur</option>
+                            <option value="Madame">Madame</option>
+                          </select>
+                        </div>
                       </td>
                     )}
 

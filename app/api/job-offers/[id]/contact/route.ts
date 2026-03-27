@@ -74,37 +74,53 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           if (postCleanValue != null && postCleanValue !== "") emeliCustom.Posteclean = String(postCleanValue);
 
           const contactPayload: Record<string, unknown> = {
-            id: targetAudience,
-            contact: {
-              ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
-              ...(offer.leadLastName && { lastName: offer.leadLastName }),
-              ...(offer.leadEmail && { email: offer.leadEmail }),
-              ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
-              ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
-            },
+            ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
+            ...(offer.leadLastName && { lastName: offer.leadLastName }),
+            ...(offer.leadEmail && { email: offer.leadEmail }),
+            ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+            ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
           };
 
           console.log(`[Emelia] Envoi contact — campagne: ${targetAudience}`);
 
-          const res = await fetch(`https://api.emelia.io/v1/lists/${encodeURIComponent(targetAudience)}/contacts`, {
+          const res = await fetch("https://graphql.emelia.io/graphql", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Authorization": workspace.emeliApiKey,
             },
-            body: JSON.stringify(contactPayload),
+            body: JSON.stringify({
+              query: `
+                mutation addContactToCampaignHook($id: ID!, $contact: JSON!) {
+                  addContactToCampaignHook(id: $id, contact: $contact)
+                }
+              `,
+              variables: {
+                id: targetAudience,
+                contact: contactPayload,
+              },
+            }),
           });
 
           if (res.ok) {
             let emeliContactId: string | undefined;
             try {
               const json = await res.json();
-              if (json?.contactId) emeliContactId = String(json.contactId);
+              if (Array.isArray(json?.errors) && json.errors.length > 0) {
+                const firstError = json.errors[0]?.message;
+                providerError = firstError
+                  ? `Emelia: ${String(firstError)}`
+                  : "Emelia a renvoyé une erreur GraphQL.";
+              } else if (json?.data?.addContactToCampaignHook) {
+                emeliContactId = String(json.data.addContactToCampaignHook);
+              }
             } catch {}
-            await prisma.jobOffer.update({
-              where: { id },
-              data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
-            });
+            if (!providerError) {
+              await prisma.jobOffer.update({
+                where: { id },
+                data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
+              });
+            }
           } else {
             const detail = await res.json().catch(() => null);
             console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);

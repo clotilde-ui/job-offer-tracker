@@ -180,6 +180,7 @@ model CustomFieldDef {
   type         String   @default("TEXT")
   formula      String?
   lgmAttribute String?
+  emeliAttribute String?
   autoFill     Boolean  @default(false)
   order        Int      @default(0)
   createdAt DateTime @default(now())

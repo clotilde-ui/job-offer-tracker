@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (status === "contact" && !offer.lgmSent) {
     const [workspace, customFields] = await Promise.all([
       prisma.workspace.findUnique({ where: { id: offer.workspaceId } }),
-      prisma.customFieldDef.findMany({ where: { workspaceId: offer.workspaceId, lgmAttribute: { not: null } } }),
+      prisma.customFieldDef.findMany({ where: { workspaceId: offer.workspaceId } }),
     ]);
 
     const prospectingProvider = workspace?.prospectingProvider ?? "lgm";
@@ -51,8 +51,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
 
       if (workspace?.emeliApiKey && targetAudience) {
-        // TODO: implémenter l'appel API Emelia une fois la doc reçue
-        console.log(`[Emelia] Envoi contact — campagne: ${targetAudience} (non implémenté)`);
+        try {
+          const customValues = JSON.parse(offer.customValues || "{}");
+          const emeliCustom: Record<string, string> = {};
+          for (const field of customFields) {
+            if (!field.emeliAttribute) continue;
+            const val = customValues[field.name];
+            if (val != null && val !== "") emeliCustom[field.emeliAttribute] = String(val);
+          }
+
+          const contactPayload: Record<string, unknown> = {
+            id: targetAudience,
+            contact: {
+              ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
+              ...(offer.leadLastName && { lastName: offer.leadLastName }),
+              ...(offer.leadEmail && { email: offer.leadEmail }),
+              ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+              ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
+            },
+          };
+
+          console.log(`[Emelia] Envoi contact — campagne: ${targetAudience}`);
+
+          const res = await fetch(`https://api.emelia.io/v1/lists/${encodeURIComponent(targetAudience)}/contacts`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": workspace.emeliApiKey,
+            },
+            body: JSON.stringify(contactPayload),
+          });
+
+          if (res.ok) {
+            let emeliContactId: string | undefined;
+            try {
+              const json = await res.json();
+              if (json?.contactId) emeliContactId = String(json.contactId);
+            } catch {}
+            await prisma.jobOffer.update({
+              where: { id },
+              data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
+            });
+          } else {
+            const detail = await res.json().catch(() => null);
+            console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);
+          }
+        } catch (err) {
+          console.error("[Emelia] Erreur de connexion:", err);
+        }
       }
     } else {
       // Provider: lgm (default)

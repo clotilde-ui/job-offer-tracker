@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const workspaceId = resolveWorkspaceId(session, req);
   if (!workspaceId) return NextResponse.json({ error: "Workspace requis" }, { status: 400 });
 
-  const { label, type, formula, lgmAttribute, autoFill } = await req.json();
+  const { label, type, formula, lgmAttribute, emeliAttribute, autoFill } = await req.json();
   if (!label || typeof label !== "string" || label.trim() === "") {
     return NextResponse.json({ error: "Label requis" }, { status: 400 });
   }
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const count = await prisma.customFieldDef.count({ where: { workspaceId } });
 
   const field = await prisma.customFieldDef.create({
-    data: { workspaceId, name, label, type: fieldType, formula: formula ?? null, lgmAttribute: lgmAttribute ?? null, autoFill: autoFill === true, order: count },
+    data: { workspaceId, name, label, type: fieldType, formula: formula ?? null, lgmAttribute: lgmAttribute ?? null, emeliAttribute: emeliAttribute ?? null, autoFill: autoFill === true, order: count },
   });
 
   return NextResponse.json(field, { status: 201 });

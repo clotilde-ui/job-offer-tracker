@@ -29,6 +29,9 @@ export async function GET(req: NextRequest) {
       apolloApiKey: true,
       phoneEnrichmentProvider: true,
       derrickApiKey: true,
+      prospectingProvider: true,
+      emeliApiKey: true,
+      emeliaCampaigns: true,
     },
   });
 
@@ -42,8 +45,13 @@ export async function PATCH(req: NextRequest) {
   const workspaceId = resolveWorkspaceId(session, req);
   if (!workspaceId) return NextResponse.json({ error: "Workspace requis" }, { status: 400 });
 
-  const { lgmApiKey, lgmAudiences, aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey, mantiksApiKey, apolloApiKey, phoneEnrichmentProvider, derrickApiKey } =
-    await req.json();
+  const {
+    lgmApiKey, lgmAudiences,
+    aiProvider, claudeApiKey, geminiApiKey, groqApiKey, openaiApiKey,
+    mantiksApiKey,
+    apolloApiKey, phoneEnrichmentProvider, derrickApiKey,
+    prospectingProvider, emeliApiKey, emeliaCampaigns,
+  } = await req.json();
 
   const workspace = await prisma.workspace.update({
     where: { id: workspaceId },
@@ -59,6 +67,9 @@ export async function PATCH(req: NextRequest) {
       apolloApiKey,
       phoneEnrichmentProvider,
       derrickApiKey,
+      prospectingProvider,
+      emeliApiKey,
+      emeliaCampaigns: Array.isArray(emeliaCampaigns) ? JSON.stringify(emeliaCampaigns) : emeliaCampaigns,
     },
     select: {
       lgmApiKey: true,
@@ -72,6 +83,9 @@ export async function PATCH(req: NextRequest) {
       apolloApiKey: true,
       phoneEnrichmentProvider: true,
       derrickApiKey: true,
+      prospectingProvider: true,
+      emeliApiKey: true,
+      emeliaCampaigns: true,
     },
   });
 

@@ -47,13 +47,17 @@ interface Workspace {
 export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspaces[0]?.id ?? "");
   const [webhookToken, setWebhookToken] = useState("");
+
+  // Prospection
+  const [prospectingProvider, setProspectingProvider] = useState<"lgm" | "emelia">("lgm");
   const [lgmApiKey, setLgmApiKey] = useState("");
   const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
-  const [mantiksApiKey, setMantiksApiKey] = useState("");
-  const [apolloApiKey, setApolloApiKey] = useState("");
-  const [phoneEnrichmentProvider, setPhoneEnrichmentProvider] = useState<"apollo" | "derrick">("apollo");
-  const [derrickApiKey, setDerrickApiKey] = useState("");
   const [newAudience, setNewAudience] = useState("");
+  const [emeliApiKey, setEmeliApiKey] = useState("");
+  const [emeliaCampaigns, setEmeliaCampaigns] = useState<string[]>([]);
+  const [newEmeliaCampaign, setNewEmeliaCampaign] = useState("");
+
+  // AI
   const [aiProvider, setAiProvider] = useState<ProviderId>("claude");
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, string>>({
     claude: "",
@@ -61,6 +65,13 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
     groq: "",
     openai: "",
   });
+
+  // Other
+  const [mantiksApiKey, setMantiksApiKey] = useState("");
+  const [apolloApiKey, setApolloApiKey] = useState("");
+  const [phoneEnrichmentProvider, setPhoneEnrichmentProvider] = useState<"apollo" | "derrick">("apollo");
+  const [derrickApiKey, setDerrickApiKey] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -76,22 +87,22 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
       })
       .then((data) => {
         setWebhookToken(data.webhookToken ?? "");
-        setLgmApiKey(data.lgmApiKey ?? "");
-        setMantiksApiKey(data.mantiksApiKey ?? "");
-        setApolloApiKey(data.apolloApiKey ?? "");
-        setPhoneEnrichmentProvider(data.phoneEnrichmentProvider === "derrick" ? "derrick" : "apollo");
-        setDerrickApiKey(data.derrickApiKey ?? "");
 
-        // Parse audiences — migrate old lgmCampaignId if lgmAudiences is empty
+        // Prospection
+        setProspectingProvider(data.prospectingProvider === "emelia" ? "emelia" : "lgm");
+        setLgmApiKey(data.lgmApiKey ?? "");
+        setEmeliApiKey(data.emeliApiKey ?? "");
+
         let audiences: string[] = [];
-        try {
-          audiences = JSON.parse(data.lgmAudiences ?? "[]");
-        } catch { /* empty */ }
-        if (audiences.length === 0 && data.lgmCampaignId) {
-          audiences = [data.lgmCampaignId];
-        }
+        try { audiences = JSON.parse(data.lgmAudiences ?? "[]"); } catch { /* empty */ }
+        if (audiences.length === 0 && data.lgmCampaignId) audiences = [data.lgmCampaignId];
         setLgmAudiences(audiences);
 
+        let emeliaCamps: string[] = [];
+        try { emeliaCamps = JSON.parse(data.emeliaCampaigns ?? "[]"); } catch { /* empty */ }
+        setEmeliaCampaigns(emeliaCamps);
+
+        // AI
         if (data.aiProvider) setAiProvider(data.aiProvider);
         setAiKeys({
           claude: data.claudeApiKey ?? "",
@@ -99,6 +110,12 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
           groq: data.groqApiKey ?? "",
           openai: data.openaiApiKey ?? "",
         });
+
+        // Other
+        setMantiksApiKey(data.mantiksApiKey ?? "");
+        setApolloApiKey(data.apolloApiKey ?? "");
+        setPhoneEnrichmentProvider(data.phoneEnrichmentProvider === "derrick" ? "derrick" : "apollo");
+        setDerrickApiKey(data.derrickApiKey ?? "");
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -111,8 +128,11 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        prospectingProvider,
         lgmApiKey,
         lgmAudiences,
+        emeliApiKey,
+        emeliaCampaigns,
         aiProvider,
         claudeApiKey: aiKeys.claude,
         geminiApiKey: aiKeys.gemini,
@@ -140,6 +160,17 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
     setLgmAudiences((prev) => prev.filter((a) => a !== name));
   }
 
+  function addEmeliaCampaign() {
+    const trimmed = newEmeliaCampaign.trim();
+    if (!trimmed || emeliaCampaigns.includes(trimmed)) return;
+    setEmeliaCampaigns((prev) => [...prev, trimmed]);
+    setNewEmeliaCampaign("");
+  }
+
+  function removeEmeliaCampaign(name: string) {
+    setEmeliaCampaigns((prev) => prev.filter((c) => c !== name));
+  }
+
   function copyWebhook() {
     const url = `${window.location.origin}/api/webhook/${webhookToken}`;
     navigator.clipboard.writeText(url);
@@ -163,17 +194,17 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
     <form onSubmit={handleSave} className="max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-brand-dark">Paramètres</h1>
-        <p className="text-sm text-gray-500 mt-1">Webhook, LGM et Intelligence Artificielle</p>
+        <p className="text-sm text-gray-500 mt-1">Webhook, Prospection et Intelligence Artificielle</p>
       </div>
 
-      {/* User selector */}
+      {/* Workspace selector */}
       <section className="bg-brand-pink/10 border border-brand-pink/30 p-4">
         <label className="block text-sm font-medium text-brand-dark mb-2">
           Gérer les paramètres de
         </label>
         <select
           value={selectedWorkspaceId}
-            onChange={(e) => { setLoading(true); setSelectedWorkspaceId(e.target.value); }}
+          onChange={(e) => { setLoading(true); setSelectedWorkspaceId(e.target.value); }}
           className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink bg-white"
         >
           {workspaces.map((u) => (
@@ -213,90 +244,180 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
             </div>
           </section>
 
-          {/* LGM */}
-          <section className="bg-white border border-gray-200 p-6 space-y-4">
-            <h2 className="font-semibold text-brand-dark">La Growth Machine</h2>
-            <p className="text-sm text-gray-600">
-              Quand un utilisateur choisit une audience dans la colonne <strong>CONTACTER</strong>,
-              le lead est automatiquement ajouté à cette audience LGM.
-            </p>
-
+          {/* Prospection */}
+          <section className="bg-white border border-gray-200 p-6 space-y-5">
             <div>
-              <label className="block text-sm font-medium text-brand-dark mb-1">
-                Webhook LGM <span className="text-gray-400 font-normal">(événements de campagne)</span>
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
-                Ajoutez cette URL dans les paramètres webhook de LGM pour recevoir les événements de campagne
-                (connexion, messages, réponses) et les afficher dans le tableau.
+              <h2 className="font-semibold text-brand-dark">Outil de prospection</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Quand un utilisateur choisit une campagne dans la colonne <strong>CONTACTER</strong>,
+                le lead est automatiquement envoyé vers l&apos;outil sélectionné.
               </p>
-              <div className="flex gap-2">
-                <code className="flex-1 bg-gray-100 px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
-                  {lgmWebhookUrl}
-                </code>
-                <button
-                  type="button"
-                  onClick={copyLgmWebhook}
-                  className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 whitespace-nowrap text-brand-dark"
-                >
-                  {lgmWebhookCopied ? "Copié !" : "Copier"}
-                </button>
+            </div>
+
+            {/* Provider toggle */}
+            <div>
+              <label className="block text-sm font-medium text-brand-dark mb-2">Outil actif</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["lgm", "emelia"] as const).map((p) => {
+                  const isActive = prospectingProvider === p;
+                  const label = p === "lgm" ? "La Growth Machine" : "Emelia";
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setProspectingProvider(p)}
+                      className={`border-2 px-3 py-2.5 text-left transition-all ${
+                        isActive
+                          ? "border-brand-dark bg-brand-dark text-white"
+                          : "border-gray-200 hover:border-gray-300 text-brand-dark"
+                      }`}
+                    >
+                      <div className="font-medium text-sm">{label}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-brand-dark mb-1">Clé API LGM</label>
-              <input
-                type="password"
-                value={lgmApiKey}
-                onChange={(e) => setLgmApiKey(e.target.value)}
-                placeholder="Clé API La Growth Machine"
-                className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
-              />
-            </div>
+            {/* LGM sub-section */}
+            <div className={`space-y-4 ${prospectingProvider !== "lgm" ? "opacity-50" : ""}`}>
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-sm font-medium text-brand-dark mb-3">La Growth Machine</p>
 
-            <div>
-              <label className="block text-sm font-medium text-brand-dark mb-2">
-                Audiences LGM
-              </label>
-              <p className="text-xs text-gray-500 mb-3">
-                Ces audiences apparaîtront dans le dropdown de la colonne CONTACTER.
-              </p>
-
-              {/* Audience list */}
-              {lgmAudiences.length > 0 && (
-                <ul className="space-y-1.5 mb-3">
-                  {lgmAudiences.map((name) => (
-                    <li key={name} className="flex items-center justify-between bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
-                      <span className="text-brand-dark">{name}</span>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-brand-dark mb-1">
+                      Webhook LGM <span className="text-gray-400 font-normal">(événements de campagne)</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Ajoutez cette URL dans les paramètres webhook de LGM pour recevoir les événements
+                      (connexion, messages, réponses).
+                    </p>
+                    <div className="flex gap-2">
+                      <code className="flex-1 bg-gray-100 px-3 py-2 text-xs font-mono text-brand-dark overflow-x-auto">
+                        {lgmWebhookUrl}
+                      </code>
                       <button
                         type="button"
-                        onClick={() => removeAudience(name)}
-                        className="text-gray-400 hover:text-red-400 transition-colors text-xs ml-4"
+                        onClick={copyLgmWebhook}
+                        className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 whitespace-nowrap text-brand-dark"
                       >
-                        Supprimer
+                        {lgmWebhookCopied ? "Copié !" : "Copier"}
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    </div>
+                  </div>
 
-              {/* Add audience */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newAudience}
-                  onChange={(e) => setNewAudience(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAudience(); } }}
-                  placeholder="Nom exact de l'audience LGM"
-                  className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
-                />
-                <button
-                  type="button"
-                  onClick={addAudience}
-                  className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 text-brand-dark whitespace-nowrap"
-                >
-                  + Ajouter
-                </button>
+                  <div>
+                    <label className="block text-sm font-medium text-brand-dark mb-1">Clé API LGM</label>
+                    <input
+                      type="password"
+                      value={lgmApiKey}
+                      onChange={(e) => setLgmApiKey(e.target.value)}
+                      placeholder="Clé API La Growth Machine"
+                      className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-brand-dark mb-2">Audiences LGM</label>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Ces audiences apparaîtront dans le dropdown de la colonne CONTACTER.
+                    </p>
+                    {lgmAudiences.length > 0 && (
+                      <ul className="space-y-1.5 mb-3">
+                        {lgmAudiences.map((name) => (
+                          <li key={name} className="flex items-center justify-between bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
+                            <span className="text-brand-dark">{name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeAudience(name)}
+                              className="text-gray-400 hover:text-red-400 transition-colors text-xs ml-4"
+                            >
+                              Supprimer
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newAudience}
+                        onChange={(e) => setNewAudience(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAudience(); } }}
+                        placeholder="Nom exact de l'audience LGM"
+                        className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+                      />
+                      <button
+                        type="button"
+                        onClick={addAudience}
+                        className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 text-brand-dark whitespace-nowrap"
+                      >
+                        + Ajouter
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Emelia sub-section */}
+            <div className={`space-y-4 ${prospectingProvider !== "emelia" ? "opacity-50" : ""}`}>
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-sm font-medium text-brand-dark mb-3">Emelia</p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-brand-dark mb-1">Clé API Emelia</label>
+                    <input
+                      type="password"
+                      value={emeliApiKey}
+                      onChange={(e) => setEmeliApiKey(e.target.value)}
+                      placeholder="Votre clé API Emelia"
+                      className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-brand-dark mb-2">Campagnes Emelia</label>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Ces campagnes apparaîtront dans le dropdown de la colonne CONTACTER.
+                    </p>
+                    {emeliaCampaigns.length > 0 && (
+                      <ul className="space-y-1.5 mb-3">
+                        {emeliaCampaigns.map((name) => (
+                          <li key={name} className="flex items-center justify-between bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
+                            <span className="text-brand-dark">{name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeEmeliaCampaign(name)}
+                              className="text-gray-400 hover:text-red-400 transition-colors text-xs ml-4"
+                            >
+                              Supprimer
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newEmeliaCampaign}
+                        onChange={(e) => setNewEmeliaCampaign(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmeliaCampaign(); } }}
+                        placeholder="Nom de la campagne Emelia"
+                        className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+                      />
+                      <button
+                        type="button"
+                        onClick={addEmeliaCampaign}
+                        className="px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50 text-brand-dark whitespace-nowrap"
+                      >
+                        + Ajouter
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -405,7 +526,6 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
               </p>
             </div>
 
-            {/* Sélecteur de fournisseur */}
             <div>
               <label className="block text-sm font-medium text-brand-dark mb-2">Fournisseur</label>
               <div className="grid grid-cols-2 gap-2">
@@ -416,7 +536,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
                       key={p}
                       type="button"
                       onClick={() => setPhoneEnrichmentProvider(p)}
-                      className={`border-2 px-3 py-2.5 text-left transition-all capitalize ${
+                      className={`border-2 px-3 py-2.5 text-left transition-all ${
                         isActive
                           ? "border-brand-dark bg-brand-dark text-white"
                           : "border-gray-200 hover:border-gray-300 text-brand-dark"
@@ -429,7 +549,6 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
               </div>
             </div>
 
-            {/* Clé API Apollo */}
             <div className={phoneEnrichmentProvider !== "apollo" ? "opacity-50" : ""}>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-brand-dark">Clé API Apollo</label>
@@ -451,7 +570,6 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
               />
             </div>
 
-            {/* Clé API Derrick */}
             <div className={phoneEnrichmentProvider !== "derrick" ? "opacity-50" : ""}>
               <label className="block text-sm font-medium text-brand-dark mb-1">Clé API Derrick</label>
               <input

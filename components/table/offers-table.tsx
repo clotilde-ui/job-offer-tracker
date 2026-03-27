@@ -66,7 +66,7 @@ interface Stats {
 interface OffersTableProps {
   customFields: CustomField[];
   targetWorkspaceId?: string;
-  lgmAudiences: string[];
+  campaigns: string[];
 }
 
 const FIXED_COLUMNS = [
@@ -143,7 +143,7 @@ function evalFormula(formula: string, offer: JobOffer): string {
   });
 }
 
-export function OffersTable({ customFields: initialCustomFields, targetWorkspaceId, lgmAudiences }: OffersTableProps) {
+export function OffersTable({ customFields: initialCustomFields, targetWorkspaceId, campaigns }: OffersTableProps) {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -779,7 +779,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       >
                         <AudienceDropdownCell
                           offer={offer}
-                          lgmAudiences={lgmAudiences}
+                          campaigns={campaigns}
                           onSet={setContactStatus}
                         />
                       </td>
@@ -1294,14 +1294,14 @@ function StatBadge({ label, value, color }: { label: string; value: number; colo
 
 function AudienceDropdownCell({
   offer,
-  lgmAudiences,
+  campaigns,
   onSet,
 }: {
   offer: JobOffer;
-  lgmAudiences: string[];
+  campaigns: string[];
   onSet: (id: string, status: "qualify" | "contact" | "doNotContact", audience?: string) => void;
 }) {
-  const multipleAudiences = lgmAudiences.length > 1;
+  const multipleAudiences = campaigns.length > 1;
 
   const currentValue = offer.doNotContact
     ? "doNotContact"
@@ -1316,7 +1316,7 @@ function AudienceDropdownCell({
       onSet(offer.id, "doNotContact");
     } else if (val === "__contact__") {
       // 1 audience : on l'utilise automatiquement
-      onSet(offer.id, "contact", lgmAudiences[0]);
+      onSet(offer.id, "contact", campaigns[0]);
     } else {
       onSet(offer.id, "contact", val);
     }
@@ -1341,11 +1341,11 @@ function AudienceDropdownCell({
         {!multipleAudiences && (
           <option value="__contact__">✓ Contacter</option>
         )}
-        {multipleAudiences && lgmAudiences.map((name) => (
+        {multipleAudiences && campaigns.map((name) => (
           <option key={name} value={name}>{name}</option>
         ))}
         {/* Fallback si contacté avec une audience supprimée depuis */}
-        {offer.toContact && offer.lgmAudience && !lgmAudiences.includes(offer.lgmAudience) && (
+        {offer.toContact && offer.lgmAudience && !campaigns.includes(offer.lgmAudience) && (
           <option value={offer.lgmAudience}>{offer.lgmAudience}</option>
         )}
       </select>

@@ -34,12 +34,17 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const [customFields, workspace] = await Promise.all([
     prisma.customFieldDef.findMany({ where: { workspaceId: targetWorkspaceId }, orderBy: { order: "asc" } }),
-    prisma.workspace.findUnique({ where: { id: targetWorkspaceId }, select: { name: true, lgmAudiences: true } }),
+    prisma.workspace.findUnique({
+      where: { id: targetWorkspaceId },
+      select: { name: true, prospectingProvider: true, lgmAudiences: true, emeliaCampaigns: true },
+    }),
   ]);
 
-  let lgmAudiences: string[] = [];
+  let campaigns: string[] = [];
   try {
-    lgmAudiences = JSON.parse(workspace?.lgmAudiences ?? "[]");
+    const provider = workspace?.prospectingProvider ?? "lgm";
+    const raw = provider === "emelia" ? workspace?.emeliaCampaigns : workspace?.lgmAudiences;
+    campaigns = JSON.parse(raw ?? "[]");
   } catch {}
 
   return (
@@ -63,7 +68,7 @@ export default async function DashboardPage({ searchParams }: Props) {
         </div>
       )}
 
-      <OffersTable customFields={customFields} targetWorkspaceId={isAdmin ? targetWorkspaceId : undefined} lgmAudiences={lgmAudiences} />
+      <OffersTable customFields={customFields} targetWorkspaceId={isAdmin ? targetWorkspaceId : undefined} campaigns={campaigns} />
     </div>
   );
 }

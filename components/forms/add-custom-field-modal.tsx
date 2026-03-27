@@ -9,6 +9,7 @@ interface CustomField {
   type: string;
   formula?: string | null;
   lgmAttribute?: string | null;
+  emeliAttribute?: string | null;
   autoFill?: boolean;
 }
 
@@ -63,6 +64,7 @@ export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields =
   const [type, setType] = useState("TEXT");
   const [formula, setFormula] = useState("");
   const [lgmAttribute, setLgmAttribute] = useState("");
+  const [emeliAttribute, setEmeliAttribute] = useState("");
   const [autoFill, setAutoFill] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -85,6 +87,7 @@ export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields =
         type,
         formula: formula || undefined,
         lgmAttribute: lgmAttribute || undefined,
+        emeliAttribute: emeliAttribute || undefined,
         autoFill: autoFill,
       }),
     });
@@ -216,6 +219,27 @@ export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields =
               {lgmAttribute && (
                 <p className="text-xs text-gray-400 mt-1">
                   La valeur sera envoyée comme <code className="bg-gray-100 px-1 rounded">{lgmAttribute}</code> lors du clic sur CONTACTER.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Emelia custom attribute */}
+          {supportsLgm && (
+            <div>
+              <label className="block text-sm font-medium text-brand-dark mb-1">
+                Envoyer vers Emelia <span className="text-gray-400 font-normal">(clé du champ custom)</span>
+              </label>
+              <input
+                type="text"
+                value={emeliAttribute}
+                onChange={(e) => setEmeliAttribute(e.target.value)}
+                placeholder="Ex: score, secteur, titre_nettoye..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+              />
+              {emeliAttribute && (
+                <p className="text-xs text-gray-400 mt-1">
+                  La valeur sera envoyée dans <code className="bg-gray-100 px-1 rounded">contact.custom.{emeliAttribute}</code> lors du clic sur CONTACTER.
                 </p>
               )}
             </div>

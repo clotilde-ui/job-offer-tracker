@@ -44,6 +44,9 @@ model Workspace {
   apolloApiKey              String?
   phoneEnrichmentProvider   String?  @default("apollo")
   derrickApiKey             String?
+  prospectingProvider       String?  @default("lgm")
+  emeliApiKey               String?
+  emeliaCampaigns           String?  @default("[]")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -177,6 +180,7 @@ model CustomFieldDef {
   type         String   @default("TEXT")
   formula      String?
   lgmAttribute String?
+  emeliAttribute String?
   autoFill     Boolean  @default(false)
   order        Int      @default(0)
   createdAt DateTime @default(now())

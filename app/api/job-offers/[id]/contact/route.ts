@@ -35,63 +35,127 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (status === "contact" && !offer.lgmSent) {
     const [workspace, customFields] = await Promise.all([
       prisma.workspace.findUnique({ where: { id: offer.workspaceId } }),
-      prisma.customFieldDef.findMany({ where: { workspaceId: offer.workspaceId, lgmAttribute: { not: null } } }),
+      prisma.customFieldDef.findMany({ where: { workspaceId: offer.workspaceId } }),
     ]);
 
+    const prospectingProvider = workspace?.prospectingProvider ?? "lgm";
+
     let targetAudience = audience ?? null;
-    if (!targetAudience && workspace?.lgmAudiences) {
-      try {
-        const audiences: string[] = JSON.parse(workspace.lgmAudiences);
-        if (audiences.length > 0) targetAudience = audiences[0];
-      } catch {}
-    }
-    if (!targetAudience) targetAudience = workspace?.lgmCampaignId ?? null;
 
-    if (workspace?.lgmApiKey && targetAudience) {
-      try {
-        const body = new URLSearchParams();
-        body.set("audience", targetAudience);
-        if (offer.leadFirstName) body.set("firstname", offer.leadFirstName);
-        if (offer.leadLastName) body.set("lastname", offer.leadLastName);
-        if (offer.leadCivility) {
-          const lower = offer.leadCivility.trim().toLowerCase();
-          const gender = (lower === "mme" || lower === "madame") ? "woman" : "man";
-          body.set("gender", gender);
-        }
-        if (offer.leadEmail) body.set("proEmail", offer.leadEmail);
-        if (offer.leadPhone) body.set("phone", offer.leadPhone);
-        if (offer.leadLinkedin) body.set("linkedinUrl", offer.leadLinkedin);
-        if (offer.leadJobTitle) body.set("jobTitle", offer.leadJobTitle);
-        if (offer.company) body.set("companyName", offer.company);
-        if (offer.website) body.set("companyUrl", offer.website);
+    if (prospectingProvider === "emelia") {
+      if (!targetAudience && workspace?.emeliaCampaigns) {
+        try {
+          const camps: string[] = JSON.parse(workspace.emeliaCampaigns);
+          if (camps.length > 0) targetAudience = camps[0];
+        } catch {}
+      }
 
-        if (customFields.length > 0) {
+      if (workspace?.emeliApiKey && targetAudience) {
+        try {
           const customValues = JSON.parse(offer.customValues || "{}");
+          const emeliCustom: Record<string, string> = {};
           for (const field of customFields) {
+            if (!field.emeliAttribute) continue;
             const val = customValues[field.name];
-            if (val != null && val !== "" && field.lgmAttribute) body.set(field.lgmAttribute, String(val));
+            if (val != null && val !== "") emeliCustom[field.emeliAttribute] = String(val);
           }
-        }
 
-        const res = await fetch(`https://apiv2.lagrowthmachine.com/flow/leads?apikey=${encodeURIComponent(workspace.lgmApiKey)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: body.toString(),
-        });
+          const contactPayload: Record<string, unknown> = {
+            id: targetAudience,
+            contact: {
+              ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
+              ...(offer.leadLastName && { lastName: offer.leadLastName }),
+              ...(offer.leadEmail && { email: offer.leadEmail }),
+              ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+              ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
+            },
+          };
 
-        if (res.ok) {
-          let lgmLeadId: string | undefined;
-          try {
-            const json = await res.json();
-            if (json?.id) lgmLeadId = String(json.id);
-          } catch {}
-          await prisma.jobOffer.update({
-            where: { id },
-            data: { lgmSent: true, lgmSentAt: new Date(), ...(lgmLeadId ? { lgmLeadId } : {}) },
+          console.log(`[Emelia] Envoi contact — campagne: ${targetAudience}`);
+
+          const res = await fetch(`https://api.emelia.io/v1/lists/${encodeURIComponent(targetAudience)}/contacts`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": workspace.emeliApiKey,
+            },
+            body: JSON.stringify(contactPayload),
           });
+
+          if (res.ok) {
+            let emeliContactId: string | undefined;
+            try {
+              const json = await res.json();
+              if (json?.contactId) emeliContactId = String(json.contactId);
+            } catch {}
+            await prisma.jobOffer.update({
+              where: { id },
+              data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
+            });
+          } else {
+            const detail = await res.json().catch(() => null);
+            console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);
+          }
+        } catch (err) {
+          console.error("[Emelia] Erreur de connexion:", err);
         }
-      } catch (err) {
-        console.error("Erreur LGM:", err);
+      }
+    } else {
+      // Provider: lgm (default)
+      if (!targetAudience && workspace?.lgmAudiences) {
+        try {
+          const audiences: string[] = JSON.parse(workspace.lgmAudiences);
+          if (audiences.length > 0) targetAudience = audiences[0];
+        } catch {}
+      }
+      if (!targetAudience) targetAudience = workspace?.lgmCampaignId ?? null;
+
+      if (workspace?.lgmApiKey && targetAudience) {
+        try {
+          const body = new URLSearchParams();
+          body.set("audience", targetAudience);
+          if (offer.leadFirstName) body.set("firstname", offer.leadFirstName);
+          if (offer.leadLastName) body.set("lastname", offer.leadLastName);
+          if (offer.leadCivility) {
+            const lower = offer.leadCivility.trim().toLowerCase();
+            const gender = (lower === "mme" || lower === "madame") ? "woman" : "man";
+            body.set("gender", gender);
+          }
+          if (offer.leadEmail) body.set("proEmail", offer.leadEmail);
+          if (offer.leadPhone) body.set("phone", offer.leadPhone);
+          if (offer.leadLinkedin) body.set("linkedinUrl", offer.leadLinkedin);
+          if (offer.leadJobTitle) body.set("jobTitle", offer.leadJobTitle);
+          if (offer.company) body.set("companyName", offer.company);
+          if (offer.website) body.set("companyUrl", offer.website);
+
+          if (customFields.length > 0) {
+            const customValues = JSON.parse(offer.customValues || "{}");
+            for (const field of customFields) {
+              const val = customValues[field.name];
+              if (val != null && val !== "" && field.lgmAttribute) body.set(field.lgmAttribute, String(val));
+            }
+          }
+
+          const res = await fetch(`https://apiv2.lagrowthmachine.com/flow/leads?apikey=${encodeURIComponent(workspace.lgmApiKey)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString(),
+          });
+
+          if (res.ok) {
+            let lgmLeadId: string | undefined;
+            try {
+              const json = await res.json();
+              if (json?.id) lgmLeadId = String(json.id);
+            } catch {}
+            await prisma.jobOffer.update({
+              where: { id },
+              data: { lgmSent: true, lgmSentAt: new Date(), ...(lgmLeadId ? { lgmLeadId } : {}) },
+            });
+          }
+        } catch (err) {
+          console.error("Erreur LGM:", err);
+        }
       }
     }
   }

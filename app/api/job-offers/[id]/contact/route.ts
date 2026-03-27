@@ -5,6 +5,25 @@ import { prisma } from "@/lib/prisma";
 
 type ContactStatus = "qualify" | "contact" | "doNotContact";
 
+function extractEmeliaCampaignId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // Accept direct campaign id
+  if (/^[a-f0-9]{24}$/i.test(trimmed)) return trimmed;
+
+  // Accept full app URL, e.g. https://app.emelia.io/advanced/<id>/settings
+  try {
+    const url = new URL(trimmed);
+    const match = url.pathname.match(/\/advanced\/([a-f0-9]{24})(?:\/|$)/i);
+    if (match?.[1]) return match[1];
+  } catch {
+    // ignore parse errors
+  }
+
+  return null;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -51,10 +70,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         } catch {}
       }
 
+      const campaignId = targetAudience ? extractEmeliaCampaignId(targetAudience) : null;
+
       if (!workspace?.emeliApiKey) {
         providerError = "Clé API Emelia manquante dans les paramètres workspace.";
-      } else if (!targetAudience) {
-        providerError = "Aucune campagne Emelia configurée/sélectionnée.";
+      } else if (!campaignId) {
+        providerError = "Campagne Emelia invalide (ID attendu ou URL app.emelia.io/advanced/<id>/...).";
       } else {
         try {
           const customValues = JSON.parse(offer.customValues || "{}");
@@ -81,7 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
           };
 
-          console.log(`[Emelia] Envoi contact — campagne: ${targetAudience}`);
+          console.log(`[Emelia] Envoi contact — campagne: ${campaignId}`);
 
           const res = await fetch("https://graphql.emelia.io/graphql", {
             method: "POST",
@@ -96,7 +117,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                 }
               `,
               variables: {
-                id: targetAudience,
+                id: campaignId,
                 contact: contactPayload,
               },
             }),

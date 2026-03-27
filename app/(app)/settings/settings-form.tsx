@@ -51,6 +51,8 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
   const [lgmAudiences, setLgmAudiences] = useState<string[]>([]);
   const [mantiksApiKey, setMantiksApiKey] = useState("");
   const [apolloApiKey, setApolloApiKey] = useState("");
+  const [phoneEnrichmentProvider, setPhoneEnrichmentProvider] = useState<"apollo" | "derrick">("apollo");
+  const [derrickApiKey, setDerrickApiKey] = useState("");
   const [newAudience, setNewAudience] = useState("");
   const [aiProvider, setAiProvider] = useState<ProviderId>("claude");
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, string>>({
@@ -77,6 +79,8 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
         setLgmApiKey(data.lgmApiKey ?? "");
         setMantiksApiKey(data.mantiksApiKey ?? "");
         setApolloApiKey(data.apolloApiKey ?? "");
+        setPhoneEnrichmentProvider(data.phoneEnrichmentProvider === "derrick" ? "derrick" : "apollo");
+        setDerrickApiKey(data.derrickApiKey ?? "");
 
         // Parse audiences — migrate old lgmCampaignId if lgmAudiences is empty
         let audiences: string[] = [];
@@ -116,6 +120,8 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
         openaiApiKey: aiKeys.openai,
         mantiksApiKey,
         apolloApiKey,
+        phoneEnrichmentProvider,
+        derrickApiKey,
       }),
     });
     setSaving(false);
@@ -389,16 +395,42 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
             </div>
           </section>
 
-          {/* Apollo */}
-          <section className="bg-white border border-gray-200 p-6 space-y-4">
+          {/* Enrichissement téléphonique */}
+          <section className="bg-white border border-gray-200 p-6 space-y-5">
             <div>
-              <h2 className="font-semibold text-brand-dark">Apollo</h2>
+              <h2 className="font-semibold text-brand-dark">Enrichissement téléphonique</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Utilisé pour l&apos;enrichissement téléphonique : lorsque vous cochez &quot;Chercher tél.&quot;,
-                Apollo recherche automatiquement le numéro mobile du contact via son profil LinkedIn.
+                Lorsque vous cochez &quot;Chercher tél.&quot;, le fournisseur sélectionné recherche
+                automatiquement le numéro mobile du contact via son profil LinkedIn.
               </p>
             </div>
+
+            {/* Sélecteur de fournisseur */}
             <div>
+              <label className="block text-sm font-medium text-brand-dark mb-2">Fournisseur</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["apollo", "derrick"] as const).map((p) => {
+                  const isActive = phoneEnrichmentProvider === p;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPhoneEnrichmentProvider(p)}
+                      className={`border-2 px-3 py-2.5 text-left transition-all capitalize ${
+                        isActive
+                          ? "border-brand-dark bg-brand-dark text-white"
+                          : "border-gray-200 hover:border-gray-300 text-brand-dark"
+                      }`}
+                    >
+                      <div className="font-medium text-sm">{p.charAt(0).toUpperCase() + p.slice(1)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Clé API Apollo */}
+            <div className={phoneEnrichmentProvider !== "apollo" ? "opacity-50" : ""}>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-brand-dark">Clé API Apollo</label>
                 <a
@@ -415,6 +447,18 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
                 value={apolloApiKey}
                 onChange={(e) => setApolloApiKey(e.target.value)}
                 placeholder="Votre clé API Apollo"
+                className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
+              />
+            </div>
+
+            {/* Clé API Derrick */}
+            <div className={phoneEnrichmentProvider !== "derrick" ? "opacity-50" : ""}>
+              <label className="block text-sm font-medium text-brand-dark mb-1">Clé API Derrick</label>
+              <input
+                type="password"
+                value={derrickApiKey}
+                onChange={(e) => setDerrickApiKey(e.target.value)}
+                placeholder="Votre clé API Derrick"
                 className="w-full border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
               />
             </div>

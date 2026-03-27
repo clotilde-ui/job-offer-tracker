@@ -44,6 +44,9 @@ model Workspace {
   apolloApiKey              String?
   phoneEnrichmentProvider   String?  @default("apollo")
   derrickApiKey             String?
+  prospectingProvider       String?  @default("lgm")
+  emeliApiKey               String?
+  emeliaCampaigns           String?  @default("[]")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 

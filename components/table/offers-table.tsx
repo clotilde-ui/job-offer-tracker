@@ -951,15 +951,26 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     {/* leadCivility */}
                     {!hiddenColumns.has("leadCivility") && (
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={offer.leadCivility ?? ""}
-                          onChange={(e) => updateLeadField(offer.id, "leadCivility", e.target.value || null)}
-                          className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
-                        >
-                          <option value="">—</option>
-                          <option value="M.">M.</option>
-                          <option value="Mme">Mme</option>
-                        </select>
+                        <div className="flex items-center gap-1">
+                          {!offer.leadCivility && (offer.leadFirstName || offer.leadLastName) && (
+                            <span
+                              className="text-red-600 text-xs"
+                              title="Civilité manquante"
+                              aria-label="Civilité manquante"
+                            >
+                              ⚠️
+                            </span>
+                          )}
+                          <select
+                            value={offer.leadCivility ?? ""}
+                            onChange={(e) => updateLeadField(offer.id, "leadCivility", e.target.value || null)}
+                            className="border border-transparent hover:border-gray-300 focus:border-brand-pink rounded px-1 py-0.5 text-sm text-gray-600 bg-transparent focus:outline-none focus:ring-1 focus:ring-brand-pink w-full"
+                          >
+                            <option value="">—</option>
+                            <option value="M.">M.</option>
+                            <option value="Mme">Mme</option>
+                          </select>
+                        </div>
                       </td>
                     )}
 

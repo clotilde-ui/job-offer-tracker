@@ -285,8 +285,12 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
 
     // Revert si erreur
     if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
       setOffers((prev) => prev.map((o) => (o.id === id ? prevOffer : o)));
       if (stats) setStats(stats);
+      if (errorData?.error) {
+        alert(String(errorData.error));
+      }
     }
   }
 

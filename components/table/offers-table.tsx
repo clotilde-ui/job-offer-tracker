@@ -923,24 +923,28 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                         {offer.leadFirstName || offer.leadLastName ? (
                           <div>
                             <div className="font-medium truncate text-brand-dark">
-                              {[normalizeCivility(offer.leadCivility), toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
+                              {[toProperCase(offer.leadFirstName), toProperCase(offer.leadLastName)]
                                 .filter(Boolean)
                                 .join(" ")}
                             </div>
-                            {computeDuplicateWarning(offer) && (
-                              <DuplicateBadge warning={computeDuplicateWarning(offer)!} />
-                            )}
-                            {offer.leadLinkedin && (
-                              <a
-                                href={offer.leadLinkedin}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs text-brand-dark underline hover:text-brand-pink"
-                              >
-                                LinkedIn
-                              </a>
-                            )}
+                            <div className="mt-0.5">
+                              {offer.leadLinkedin && (
+                                <a
+                                  href={offer.leadLinkedin}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="block text-xs text-brand-dark underline hover:text-brand-pink"
+                                >
+                                  LinkedIn
+                                </a>
+                              )}
+                              {computeDuplicateWarning(offer) && (
+                                <div className="flex justify-center mt-0.5">
+                                  <DuplicateBadge warning={computeDuplicateWarning(offer)!} />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-gray-400">—</span>

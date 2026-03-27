@@ -40,6 +40,16 @@ function sanitizeString(value: unknown, maxLength = 1000): string | null {
   return String(value).slice(0, maxLength);
 }
 
+function toPersonNameCase(value: unknown, maxLength = 100): string | null {
+  const sanitized = sanitizeString(value, maxLength);
+  if (!sanitized) return null;
+
+  return sanitized
+    .trim()
+    .toLocaleLowerCase("fr-FR")
+    .replace(/(^|[\s\-'])\p{L}/gu, (letter) => letter.toLocaleUpperCase("fr-FR"));
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -119,8 +129,8 @@ export async function POST(
             ? new Date(String(lead.job_creation_date))
             : null,
           leadCivility: sanitizeString(lead.lead_civility, 20),
-          leadFirstName: sanitizeString(lead.lead_first_name, 100),
-          leadLastName: sanitizeString(lead.lead_last_name, 100),
+          leadFirstName: toPersonNameCase(lead.lead_first_name),
+          leadLastName: toPersonNameCase(lead.lead_last_name),
           leadEmail: sanitizeString(lead.lead_email, 254),
           leadJobTitle: sanitizeString(lead.lead_job_title, 200),
           leadLinkedin,

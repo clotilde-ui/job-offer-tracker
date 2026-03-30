@@ -28,11 +28,10 @@ type EmeliaCampaignInfo = { id: string; provider: string; isAdvanced: boolean } 
 
 async function resolveEmeliaCampaign(apiKey: string, nameOrIdOrUrl: string): Promise<EmeliaCampaignInfo> {
   const directId = extractEmeliaCampaignId(nameOrIdOrUrl);
-
-  // Detect advanced campaign from the input URL pattern
   const inputIsAdvancedUrl = /\/advanced\//i.test(nameOrIdOrUrl);
+  const needle = nameOrIdOrUrl.trim().toLowerCase();
 
-  // Query all campaigns to get id + provider (works whether input is name or direct id)
+  // 1. Try GraphQL all_campaigns (email / LinkedIn campaigns)
   try {
     const res = await fetch("https://graphql.emelia.io/graphql", {
       method: "POST",
@@ -43,7 +42,6 @@ async function resolveEmeliaCampaign(apiKey: string, nameOrIdOrUrl: string): Pro
       const json = await res.json();
       const campaigns: Array<{ _id?: string; name?: string; provider?: string }> =
         json?.data?.all_campaigns ?? [];
-      const needle = nameOrIdOrUrl.trim().toLowerCase();
       const match =
         (directId ? campaigns.find((c) => c._id === directId) : null) ??
         campaigns.find((c) => c.name?.trim().toLowerCase() === needle);
@@ -53,9 +51,26 @@ async function resolveEmeliaCampaign(apiKey: string, nameOrIdOrUrl: string): Pro
         return { id: match._id, provider, isAdvanced };
       }
     }
-  } catch { /* ignore, fall through */ }
+  } catch { /* ignore, try next */ }
 
-  // Fallback: if we have a direct ID but couldn't retrieve campaign details
+  // 2. Try REST advanced campaigns (not returned by GraphQL)
+  try {
+    const res = await fetch("https://api.emelia.io/advanced/campaigns", {
+      headers: { "Authorization": apiKey },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const campaigns: Array<{ _id?: string; name?: string }> = json?.campaigns ?? [];
+      const match =
+        (directId ? campaigns.find((c) => c._id === directId) : null) ??
+        campaigns.find((c) => c.name?.trim().toLowerCase() === needle);
+      if (match?._id) {
+        return { id: match._id, provider: "advanced", isAdvanced: true };
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 3. Fallback: use direct ID if available
   if (directId) {
     return { id: directId, provider: "unknown", isAdvanced: inputIsAdvancedUrl };
   }

@@ -24,27 +24,36 @@ function extractEmeliaCampaignId(value: string): string | null {
   return null;
 }
 
-async function resolveEmeliaCampaignId(apiKey: string, nameOrIdOrUrl: string): Promise<string | null> {
-  // Try direct extraction first (ID or URL)
-  const directId = extractEmeliaCampaignId(nameOrIdOrUrl);
-  if (directId) return directId;
+type EmeliaCampaignInfo = { id: string; provider: string } | null;
 
-  // Otherwise look up by campaign name
+async function resolveEmeliaCampaign(apiKey: string, nameOrIdOrUrl: string): Promise<EmeliaCampaignInfo> {
+  const directId = extractEmeliaCampaignId(nameOrIdOrUrl);
+
+  // Query all campaigns to get id + provider (works whether input is name or direct id)
   try {
     const res = await fetch("https://graphql.emelia.io/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": apiKey },
-      body: JSON.stringify({ query: "query { campaigns { _id name } }" }),
+      body: JSON.stringify({ query: "query { all_campaigns { _id name provider } }" }),
     });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const campaigns: Array<{ _id?: string; name?: string }> = json?.data?.campaigns ?? [];
-    const needle = nameOrIdOrUrl.trim().toLowerCase();
-    const match = campaigns.find((c) => c.name?.trim().toLowerCase() === needle);
-    return match?._id ?? null;
-  } catch {
-    return null;
-  }
+    if (res.ok) {
+      const json = await res.json();
+      const campaigns: Array<{ _id?: string; name?: string; provider?: string }> =
+        json?.data?.all_campaigns ?? [];
+      const needle = nameOrIdOrUrl.trim().toLowerCase();
+      // Match by direct ID first, then by name
+      const match =
+        (directId ? campaigns.find((c) => c._id === directId) : null) ??
+        campaigns.find((c) => c.name?.trim().toLowerCase() === needle);
+      if (match?._id) {
+        return { id: match._id, provider: match.provider?.toLowerCase() ?? "email" };
+      }
+    }
+  } catch { /* ignore, fall through */ }
+
+  // Fallback: if we have a direct ID but couldn't retrieve campaign details, assume email
+  if (directId) return { id: directId, provider: "email" };
+  return null;
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -93,17 +102,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         } catch {}
       }
 
-      const campaignId = targetAudience && workspace?.emeliApiKey
-        ? await resolveEmeliaCampaignId(workspace.emeliApiKey, targetAudience)
+      const campaign = targetAudience && workspace?.emeliApiKey
+        ? await resolveEmeliaCampaign(workspace.emeliApiKey, targetAudience)
         : null;
 
       if (!workspace?.emeliApiKey) {
         providerError = "Clé API Emelia manquante dans les paramètres workspace.";
       } else if (!targetAudience) {
         providerError = "Aucune campagne Emelia configurée dans les paramètres workspace.";
-      } else if (!campaignId) {
+      } else if (!campaign) {
         providerError = `Campagne Emelia introuvable : "${targetAudience}". Vérifiez le nom, l'ID ou l'URL dans les paramètres.`;
       } else {
+        const campaignId = campaign.id;
+        // Choose mutation based on campaign provider/type
+        const isLinkedin = campaign.provider === "linkedin";
+        const mutationName = isLinkedin
+          ? "addContactToLinkedInCampaignHook"
+          : "addContactToCampaignHook";
+
         try {
           const customValues = JSON.parse(offer.customValues || "{}");
           const emeliCustom: Record<string, string> = {};
@@ -132,7 +148,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
           };
 
-          console.log(`[Emelia] Envoi contact — campagne: ${campaignId}`);
+          console.log(`[Emelia] Envoi contact — campagne: ${campaignId} (provider: ${campaign.provider}, mutation: ${mutationName})`);
 
           const res = await fetch("https://graphql.emelia.io/graphql", {
             method: "POST",
@@ -142,8 +158,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             },
             body: JSON.stringify({
               query: `
-                mutation addContactToCampaignHook($id: ID!, $contact: JSON!) {
-                  addContactToCampaignHook(id: $id, contact: $contact)
+                mutation emeliaMutation($id: ID!, $contact: JSON!) {
+                  ${mutationName}(id: $id, contact: $contact)
                 }
               `,
               variables: {
@@ -170,8 +186,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                     ? `Emelia: ${errorMsg}`
                     : "Emelia a renvoyé une erreur GraphQL.";
                 }
-              } else if (json?.data?.addContactToCampaignHook) {
-                emeliContactId = String(json.data.addContactToCampaignHook);
+              } else if (json?.data?.[mutationName]) {
+                emeliContactId = String(json.data[mutationName]);
               }
             } catch {}
             if (!providerError) {

@@ -239,7 +239,7 @@ export function AddCustomFieldModal({ onClose, onCreated, existingCustomFields =
               />
               {emeliAttribute && (
                 <p className="text-xs text-gray-400 mt-1">
-                  La valeur sera envoyée dans <code className="bg-gray-100 px-1 rounded">contact.custom.{emeliAttribute}</code> lors du clic sur CONTACTER.
+                  La valeur sera envoyée dans <code className="bg-gray-100 px-1 rounded">contact.{emeliAttribute}</code> lors du clic sur CONTACTER.
                 </p>
               )}
             </div>

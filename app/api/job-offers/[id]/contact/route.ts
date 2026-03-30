@@ -139,7 +139,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // Build custom fields
         const customValues = JSON.parse(offer.customValues || "{}");
         const emeliCustom: Record<string, string> = {};
-        const emeliaReservedCustomFields = new Set(["Entreprise", "Civilite", "Posteclean"]);
+        // Entreprise and Civilite come from offer fields — reserve them to avoid duplicates
+        const emeliaReservedCustomFields = new Set(["Entreprise", "Civilite"]);
         for (const field of customFields) {
           if (!field.emeliAttribute) continue;
           const val = customValues[field.name];
@@ -149,8 +150,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }
         if (offer.company) emeliCustom.Entreprise = offer.company;
         if (offer.leadCivility) emeliCustom.Civilite = offer.leadCivility;
-        const postCleanValue = customValues["Post clean"];
-        if (postCleanValue != null && postCleanValue !== "") emeliCustom.Posteclean = String(postCleanValue);
 
         try {
           if (campaign.isAdvanced) {

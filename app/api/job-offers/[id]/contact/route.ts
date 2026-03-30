@@ -154,24 +154,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
         try {
           if (campaign.isAdvanced) {
-            // Advanced campaign: REST endpoint POST /advanced/campaign/add-contact
+            // Advanced campaign: REST endpoint POST /advanced/campaign/contacts
+            // Rules confirmed by production tests:
+            // - id (not campaignId) at root
+            // - linkedinUrlProfile (not linkedinUrl)
+            // - custom fields flat inside contact (no nested customFields object)
             console.log(`[Emelia] Envoi contact (advanced) — campagne: ${campaignId}`);
 
             const contact: Record<string, unknown> = {
               ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
               ...(offer.leadLastName && { lastName: offer.leadLastName }),
               ...(offer.leadEmail && { email: offer.leadEmail }),
-              ...(offer.leadLinkedin && { linkedinUrl: offer.leadLinkedin }),
-              ...(Object.keys(emeliCustom).length > 0 && { customFields: emeliCustom }),
+              ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+              // Custom fields flat at contact root (nested customFields object causes API error)
+              ...emeliCustom,
             };
 
-            const res = await fetch("https://api.emelia.io/advanced/campaign/add-contact", {
+            const res = await fetch("https://api.emelia.io/advanced/campaign/contacts", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "Authorization": workspace.emeliApiKey,
               },
-              body: JSON.stringify({ campaignId, contact }),
+              body: JSON.stringify({ id: campaignId, contact }),
             });
 
             if (res.ok) {

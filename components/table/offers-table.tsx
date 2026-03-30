@@ -1363,8 +1363,8 @@ function AudienceDropdownCell({
         {multipleAudiences && campaigns.map((name) => (
           <option key={name} value={name}>{name}</option>
         ))}
-        {/* Fallback si contacté avec une audience supprimée depuis */}
-        {offer.toContact && offer.lgmAudience && !campaigns.includes(offer.lgmAudience) && (
+        {/* Fallback si contacté avec une audience supprimée depuis (utile seulement en multi-campagnes) */}
+        {multipleAudiences && offer.toContact && offer.lgmAudience && !campaigns.includes(offer.lgmAudience) && (
           <option value={offer.lgmAudience}>{offer.lgmAudience}</option>
         )}
       </select>

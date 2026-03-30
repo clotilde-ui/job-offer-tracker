@@ -132,9 +132,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               const json = await res.json();
               if (Array.isArray(json?.errors) && json.errors.length > 0) {
                 const firstError = json.errors[0]?.message;
-                providerError = firstError
-                  ? `Emelia: ${String(firstError)}`
-                  : "Emelia a renvoyé une erreur GraphQL.";
+                const errorMsg = firstError ? String(firstError) : "";
+                // If Emelia rejects due to email validation but the lead has no email,
+                // treat it as a non-blocking issue: the lead is processed without email.
+                const isEmailError = /invalid.?email|email.?invalid|email.?required/i.test(errorMsg);
+                if (isEmailError && !offer.leadEmail) {
+                  console.warn("[Emelia] Email absent ignoré — lead marqué envoyé sans email.");
+                } else {
+                  providerError = errorMsg
+                    ? `Emelia: ${errorMsg}`
+                    : "Emelia a renvoyé une erreur GraphQL.";
+                }
               } else if (json?.data?.addContactToCampaignHook) {
                 emeliContactId = String(json.data.addContactToCampaignHook);
               }

@@ -405,7 +405,7 @@ export function SettingsForm({ workspaces }: { workspaces: Workspace[] }) {
                         value={newEmeliaCampaign}
                         onChange={(e) => setNewEmeliaCampaign(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmeliaCampaign(); } }}
-                        placeholder="Nom de la campagne Emelia"
+                        placeholder="Nom, ID ou URL de la campagne Emelia"
                         className="flex-1 border border-gray-300 px-3 py-2 text-sm text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-pink"
                       />
                       <button

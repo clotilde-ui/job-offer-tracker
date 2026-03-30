@@ -24,6 +24,29 @@ function extractEmeliaCampaignId(value: string): string | null {
   return null;
 }
 
+async function resolveEmeliaCampaignId(apiKey: string, nameOrIdOrUrl: string): Promise<string | null> {
+  // Try direct extraction first (ID or URL)
+  const directId = extractEmeliaCampaignId(nameOrIdOrUrl);
+  if (directId) return directId;
+
+  // Otherwise look up by campaign name
+  try {
+    const res = await fetch("https://graphql.emelia.io/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": apiKey },
+      body: JSON.stringify({ query: "query { campaigns { _id name } }" }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const campaigns: Array<{ _id?: string; name?: string }> = json?.data?.campaigns ?? [];
+    const needle = nameOrIdOrUrl.trim().toLowerCase();
+    const match = campaigns.find((c) => c.name?.trim().toLowerCase() === needle);
+    return match?._id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -70,12 +93,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         } catch {}
       }
 
-      const campaignId = targetAudience ? extractEmeliaCampaignId(targetAudience) : null;
+      const campaignId = targetAudience && workspace?.emeliApiKey
+        ? await resolveEmeliaCampaignId(workspace.emeliApiKey, targetAudience)
+        : null;
 
       if (!workspace?.emeliApiKey) {
         providerError = "Clé API Emelia manquante dans les paramètres workspace.";
+      } else if (!targetAudience) {
+        providerError = "Aucune campagne Emelia configurée dans les paramètres workspace.";
       } else if (!campaignId) {
-        providerError = "Campagne Emelia invalide (ID attendu ou URL app.emelia.io/advanced/<id>/...).";
+        providerError = `Campagne Emelia introuvable : "${targetAudience}". Vérifiez le nom, l'ID ou l'URL dans les paramètres.`;
       } else {
         try {
           const customValues = JSON.parse(offer.customValues || "{}");

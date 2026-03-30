@@ -24,10 +24,13 @@ function extractEmeliaCampaignId(value: string): string | null {
   return null;
 }
 
-type EmeliaCampaignInfo = { id: string; provider: string } | null;
+type EmeliaCampaignInfo = { id: string; provider: string; isAdvanced: boolean } | null;
 
 async function resolveEmeliaCampaign(apiKey: string, nameOrIdOrUrl: string): Promise<EmeliaCampaignInfo> {
   const directId = extractEmeliaCampaignId(nameOrIdOrUrl);
+
+  // Detect advanced campaign from the input URL pattern
+  const inputIsAdvancedUrl = /\/advanced\//i.test(nameOrIdOrUrl);
 
   // Query all campaigns to get id + provider (works whether input is name or direct id)
   try {
@@ -41,18 +44,21 @@ async function resolveEmeliaCampaign(apiKey: string, nameOrIdOrUrl: string): Pro
       const campaigns: Array<{ _id?: string; name?: string; provider?: string }> =
         json?.data?.all_campaigns ?? [];
       const needle = nameOrIdOrUrl.trim().toLowerCase();
-      // Match by direct ID first, then by name
       const match =
         (directId ? campaigns.find((c) => c._id === directId) : null) ??
         campaigns.find((c) => c.name?.trim().toLowerCase() === needle);
       if (match?._id) {
-        return { id: match._id, provider: match.provider?.toLowerCase() ?? "email" };
+        const provider = match.provider?.toLowerCase() ?? "email";
+        const isAdvanced = inputIsAdvancedUrl || provider.includes("advanced");
+        return { id: match._id, provider, isAdvanced };
       }
     }
   } catch { /* ignore, fall through */ }
 
-  // Fallback: if we have a direct ID but couldn't retrieve campaign details, assume email
-  if (directId) return { id: directId, provider: "email" };
+  // Fallback: if we have a direct ID but couldn't retrieve campaign details
+  if (directId) {
+    return { id: directId, provider: "unknown", isAdvanced: inputIsAdvancedUrl };
+  }
   return null;
 }
 
@@ -114,94 +120,117 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         providerError = `Campagne Emelia introuvable : "${targetAudience}". Vérifiez le nom, l'ID ou l'URL dans les paramètres.`;
       } else {
         const campaignId = campaign.id;
-        // Choose mutation based on campaign provider/type
-        const isLinkedin = campaign.provider === "linkedin";
-        const mutationName = isLinkedin
-          ? "addContactToLinkedInCampaignHook"
-          : "addContactToCampaignHook";
+
+        // Build custom fields
+        const customValues = JSON.parse(offer.customValues || "{}");
+        const emeliCustom: Record<string, string> = {};
+        const emeliaReservedCustomFields = new Set(["Entreprise", "Civilite", "Posteclean"]);
+        for (const field of customFields) {
+          if (!field.emeliAttribute) continue;
+          const val = customValues[field.name];
+          if (val == null || val === "") continue;
+          if (emeliaReservedCustomFields.has(field.emeliAttribute)) continue;
+          emeliCustom[field.emeliAttribute] = String(val);
+        }
+        if (offer.company) emeliCustom.Entreprise = offer.company;
+        if (offer.leadCivility) emeliCustom.Civilite = offer.leadCivility;
+        const postCleanValue = customValues["Post clean"];
+        if (postCleanValue != null && postCleanValue !== "") emeliCustom.Posteclean = String(postCleanValue);
 
         try {
-          const customValues = JSON.parse(offer.customValues || "{}");
-          const emeliCustom: Record<string, string> = {};
-          const emeliaReservedCustomFields = new Set(["Entreprise", "Civilite", "Posteclean"]);
-          for (const field of customFields) {
-            if (!field.emeliAttribute) continue;
-            const val = customValues[field.name];
-            if (val == null || val === "") continue;
-            if (emeliaReservedCustomFields.has(field.emeliAttribute)) continue;
-            emeliCustom[field.emeliAttribute] = String(val);
-          }
+          if (campaign.isAdvanced) {
+            // Advanced campaign: REST endpoint POST /advanced/campaign/add-contact
+            console.log(`[Emelia] Envoi contact (advanced) — campagne: ${campaignId}`);
 
-          if (offer.company) emeliCustom.Entreprise = offer.company;
-          if (offer.leadCivility) emeliCustom.Civilite = offer.leadCivility;
-          const postCleanValue = customValues["Post clean"];
-          if (postCleanValue != null && postCleanValue !== "") emeliCustom.Posteclean = String(postCleanValue);
+            const contact: Record<string, unknown> = {
+              ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
+              ...(offer.leadLastName && { lastName: offer.leadLastName }),
+              ...(offer.leadEmail && { email: offer.leadEmail }),
+              ...(offer.leadLinkedin && { linkedinUrl: offer.leadLinkedin }),
+              ...(Object.keys(emeliCustom).length > 0 && { customFields: emeliCustom }),
+            };
 
-          const contactPayload: Record<string, unknown> = {
-            ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
-            ...(offer.leadLastName && { lastName: offer.leadLastName }),
-            // Email is optional: allow sending a lead without email.
-            ...(offer.leadEmail && { email: offer.leadEmail }),
-            // Keep both keys for compatibility across Emelia account/API variants.
-            ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
-            ...(offer.leadLinkedin && { linkedinUrl: offer.leadLinkedin }),
-            ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
-          };
-
-          console.log(`[Emelia] Envoi contact — campagne: ${campaignId} (provider: ${campaign.provider}, mutation: ${mutationName})`);
-
-          const res = await fetch("https://graphql.emelia.io/graphql", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": workspace.emeliApiKey,
-            },
-            body: JSON.stringify({
-              query: `
-                mutation emeliaMutation($id: ID!, $contact: JSON!) {
-                  ${mutationName}(id: $id, contact: $contact)
-                }
-              `,
-              variables: {
-                id: campaignId,
-                contact: contactPayload,
+            const res = await fetch("https://api.emelia.io/advanced/campaign/add-contact", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": workspace.emeliApiKey,
               },
-            }),
-          });
+              body: JSON.stringify({ campaignId, contact }),
+            });
 
-          if (res.ok) {
-            let emeliContactId: string | undefined;
-            try {
-              const json = await res.json();
-              if (Array.isArray(json?.errors) && json.errors.length > 0) {
-                const firstError = json.errors[0]?.message;
-                const errorMsg = firstError ? String(firstError) : "";
-                // If Emelia rejects due to email validation but the lead has no email,
-                // treat it as a non-blocking issue: the lead is processed without email.
-                const isEmailError = /invalid.?email|email.?invalid|email.?required/i.test(errorMsg);
-                if (isEmailError && !offer.leadEmail) {
-                  console.warn("[Emelia] Email absent ignoré — lead marqué envoyé sans email.");
-                } else {
-                  providerError = errorMsg
-                    ? `Emelia: ${errorMsg}`
-                    : "Emelia a renvoyé une erreur GraphQL.";
-                }
-              } else if (json?.data?.[mutationName]) {
-                emeliContactId = String(json.data[mutationName]);
-              }
-            } catch {}
-            if (!providerError) {
+            if (res.ok) {
+              const json = await res.json().catch(() => null);
+              const emeliContactId = json?.id ? String(json.id) : undefined;
               await prisma.jobOffer.update({
                 where: { id },
                 data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
               });
+            } else {
+              const detail = await res.json().catch(() => null);
+              console.error(`[Emelia Advanced] Erreur HTTP ${res.status}:`, detail);
+              providerError = detail?.message
+                ? `Emelia: ${String(detail.message)}`
+                : `Emelia a répondu avec une erreur HTTP ${res.status}.`;
             }
           } else {
-            const detail = await res.json().catch(() => null);
-            console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);
-            providerError = detail?.message
-              ? `Emelia: ${String(detail.message)}`
-              : `Emelia a répondu avec une erreur HTTP ${res.status}.`;
+            // Email or LinkedIn campaign: GraphQL
+            const isLinkedin = campaign.provider === "linkedin";
+            const mutationName = isLinkedin ? "addContactToLinkedInCampaignHook" : "addContactToCampaignHook";
+
+            console.log(`[Emelia] Envoi contact — campagne: ${campaignId} (provider: ${campaign.provider}, mutation: ${mutationName})`);
+
+            const contactPayload: Record<string, unknown> = {
+              ...(offer.leadFirstName && { firstName: offer.leadFirstName }),
+              ...(offer.leadLastName && { lastName: offer.leadLastName }),
+              ...(offer.leadEmail && { email: offer.leadEmail }),
+              ...(offer.leadLinkedin && { linkedinUrlProfile: offer.leadLinkedin }),
+              ...(offer.leadLinkedin && { linkedinUrl: offer.leadLinkedin }),
+              ...(Object.keys(emeliCustom).length > 0 && { custom: emeliCustom }),
+            };
+
+            const res = await fetch("https://graphql.emelia.io/graphql", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": workspace.emeliApiKey,
+              },
+              body: JSON.stringify({
+                query: `mutation emeliaMutation($id: ID!, $contact: JSON!) { ${mutationName}(id: $id, contact: $contact) }`,
+                variables: { id: campaignId, contact: contactPayload },
+              }),
+            });
+
+            if (res.ok) {
+              let emeliContactId: string | undefined;
+              try {
+                const json = await res.json();
+                if (Array.isArray(json?.errors) && json.errors.length > 0) {
+                  const firstError = json.errors[0]?.message;
+                  const errorMsg = firstError ? String(firstError) : "";
+                  const isEmailError = /invalid.?email|email.?invalid|email.?required/i.test(errorMsg);
+                  if (isEmailError && !offer.leadEmail) {
+                    console.warn("[Emelia] Email absent ignoré — lead marqué envoyé sans email.");
+                  } else {
+                    providerError = errorMsg ? `Emelia: ${errorMsg}` : "Emelia a renvoyé une erreur GraphQL.";
+                  }
+                } else if (json?.data?.[mutationName]) {
+                  emeliContactId = String(json.data[mutationName]);
+                }
+              } catch {}
+              if (!providerError) {
+                await prisma.jobOffer.update({
+                  where: { id },
+                  data: { lgmSent: true, lgmSentAt: new Date(), ...(emeliContactId ? { lgmLeadId: emeliContactId } : {}) },
+                });
+              }
+            } else {
+              const detail = await res.json().catch(() => null);
+              console.error(`[Emelia] Erreur HTTP ${res.status}:`, detail);
+              providerError = detail?.message
+                ? `Emelia: ${String(detail.message)}`
+                : `Emelia a répondu avec une erreur HTTP ${res.status}.`;
+            }
           }
         } catch (err) {
           console.error("[Emelia] Erreur de connexion:", err);

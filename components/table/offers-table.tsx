@@ -94,7 +94,7 @@ const FIXED_COLUMNS = [
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
   { key: "lgmSent", label: "Envoi dans LGM", defaultWidth: 140 },
-  { key: "lgmMessagesSent", label: "Messages envoyés", defaultWidth: 130 },
+  { key: "lgmMessagesSent", label: "Appeler 📞", defaultWidth: 130 },
   { key: "lgmEmailOpened", label: "Ouvertures email", defaultWidth: 130 },
   { key: "lgmConnectionSentAt", label: "Connexion envoyée", defaultWidth: 150 },
   { key: "lgmConnectionAcceptedAt", label: "Connexion acceptée", defaultWidth: 155 },

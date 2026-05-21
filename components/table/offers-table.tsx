@@ -46,6 +46,7 @@ interface JobOffer {
   enrichedPhone: string | null;
   apolloEnrichmentStatus: string;
   lgmMessagesSent: number | null;
+  callRequested: boolean;
   lgmEmailOpened: number | null;
   lgmConnectionSentAt: string | null;
   lgmConnectionAcceptedAt: string | null;
@@ -94,7 +95,8 @@ const FIXED_COLUMNS = [
   { key: "phoneLookupRequested", label: "Chercher tél.", defaultWidth: 120 },
   { key: "enrichedPhone", label: "Numéro de téléphone", defaultWidth: 170 },
   { key: "lgmSent", label: "Envoi dans LGM", defaultWidth: 140 },
-  { key: "lgmMessagesSent", label: "Appeler 📞", defaultWidth: 130 },
+  { key: "callRequested", label: "Appeler 📞", defaultWidth: 130 },
+  { key: "lgmMessagesSent", label: "Messages envoyés", defaultWidth: 130 },
   { key: "lgmEmailOpened", label: "Ouvertures email", defaultWidth: 130 },
   { key: "lgmConnectionSentAt", label: "Connexion envoyée", defaultWidth: 150 },
   { key: "lgmConnectionAcceptedAt", label: "Connexion acceptée", defaultWidth: 155 },
@@ -1092,6 +1094,17 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                           <span className="text-xs text-brand-green font-semibold whitespace-nowrap">
                             {new Date(offer.lgmSentAt ?? offer.contactedAt ?? "").toLocaleDateString("fr-FR")}
                           </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* callRequested */}
+                    {!hiddenColumns.has("callRequested") && (
+                      <td className="px-3 py-3 text-center">
+                        {offer.callRequested ? (
+                          <span className="text-lg">📞</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}

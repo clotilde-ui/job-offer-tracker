@@ -449,12 +449,11 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     });
   }
 
-  function handleResizeMouseDown(e: React.MouseEvent<HTMLDivElement>, colKey: string) {
+  function handleResizeMouseDown(e: React.MouseEvent<HTMLDivElement>, colKey: string, defaultWidth: number) {
     e.preventDefault();
     e.stopPropagation();
-    const th = e.currentTarget.parentElement as HTMLTableCellElement;
     const startX = e.clientX;
-    const startWidth = th.offsetWidth;
+    const startWidth = colWidths[colKey] ?? defaultWidth;
 
     const onMouseMove = (moveE: MouseEvent) => {
       const newWidth = Math.max(60, startWidth + (moveE.clientX - startX));
@@ -692,7 +691,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       col.label
                     )}
                     <div
-                      onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
+                      onMouseDown={(e) => handleResizeMouseDown(e, col.key, col.defaultWidth)}
                       className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
                     />
                   </th>
@@ -729,7 +728,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     </button>
                   </span>
                   <div
-                    onMouseDown={(e) => handleResizeMouseDown(e, field.id)}
+                    onMouseDown={(e) => handleResizeMouseDown(e, field.id, CUSTOM_FIELD_DEFAULT_WIDTH)}
                     className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
                   />
                 </th>

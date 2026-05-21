@@ -449,11 +449,12 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     });
   }
 
-  function handleResizeMouseDown(e: React.MouseEvent<HTMLDivElement>, colKey: string, defaultWidth: number) {
+  function handleResizeMouseDown(e: React.MouseEvent<HTMLDivElement>, colKey: string) {
     e.preventDefault();
     e.stopPropagation();
+    const th = e.currentTarget.parentElement as HTMLTableCellElement;
     const startX = e.clientX;
-    const startWidth = colWidths[colKey] ?? defaultWidth;
+    const startWidth = th.offsetWidth;
 
     const onMouseMove = (moveE: MouseEvent) => {
       const newWidth = Math.max(60, startWidth + (moveE.clientX - startX));
@@ -691,7 +692,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                       col.label
                     )}
                     <div
-                      onMouseDown={(e) => handleResizeMouseDown(e, col.key, col.defaultWidth)}
+                      onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
                       className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
                     />
                   </th>
@@ -728,7 +729,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                     </button>
                   </span>
                   <div
-                    onMouseDown={(e) => handleResizeMouseDown(e, field.id, CUSTOM_FIELD_DEFAULT_WIDTH)}
+                    onMouseDown={(e) => handleResizeMouseDown(e, field.id)}
                     className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-brand-pink/60 transition-colors"
                   />
                 </th>
@@ -1011,25 +1012,27 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
 
                     {/* leadEmail */}
                     {!hiddenColumns.has("leadEmail") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">
-                        {offer.leadEmail ? (
-                          <a
-                            href={`mailto:${offer.leadEmail}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="hover:underline hover:text-brand-pink"
-                          >
-                            {offer.leadEmail}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("leadEmail", 180) }}>
+                        <div className="truncate text-gray-600">
+                          {offer.leadEmail ? (
+                            <a
+                              href={`mailto:${offer.leadEmail}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="hover:underline hover:text-brand-pink"
+                            >
+                              {offer.leadEmail}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </div>
                       </td>
                     )}
 
                     {/* leadJobTitle */}
                     {!hiddenColumns.has("leadJobTitle") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">
-                        {offer.leadJobTitle ?? "—"}
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("leadJobTitle", 140) }}>
+                        <div className="truncate text-gray-600">{offer.leadJobTitle ?? "—"}</div>
                       </td>
                     )}
 
@@ -1047,7 +1050,9 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
 
                     {/* leadPhone */}
                     {!hiddenColumns.has("leadPhone") && (
-                      <td className="px-3 py-3 text-gray-600 truncate">{offer.leadPhone ?? "—"}</td>
+                      <td className="px-3 py-3" style={{ maxWidth: getColWidth("leadPhone", 130) }}>
+                        <div className="truncate text-gray-600">{offer.leadPhone ?? "—"}</div>
+                      </td>
                     )}
 
                     {/* phoneLookupRequested */}

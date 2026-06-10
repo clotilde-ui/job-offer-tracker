@@ -62,7 +62,6 @@ interface Stats {
   toContact: number;
   doNotContact: number;
   qualify: number;
-  callRequested: number;
 }
 
 interface OffersTableProps {
@@ -515,7 +514,6 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
           <StatBadge label="À qualifier" value={stats.qualify} color="gray" />
           <StatBadge label="Contacté" value={stats.toContact} color="green" />
           <StatBadge label="Ne pas contacter" value={stats.doNotContact} color="red" />
-          {stats.callRequested > 0 && <StatBadge label="Appeler 📞" value={stats.callRequested} color="blue" />}
         </div>
       )}
 
@@ -553,7 +551,6 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
             { key: "qualify", label: "À qualifier" },
             { key: "contact", label: "Contacté" },
             { key: "doNotContact", label: "Ne pas contacter" },
-            { key: "callRequested", label: "Appeler 📞" },
           ].map(({ key, label }) => (
             <label key={key} className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
               <input
@@ -1316,14 +1313,12 @@ function DuplicateBadge({ warning }: { warning: string }) {
   );
 }
 
-function StatBadge({ label, value, color }: { label: string; value: number; color: "gray" | "green" | "red" | "blue" }) {
+function StatBadge({ label, value, color }: { label: string; value: number; color: "gray" | "green" | "red" }) {
   const colorClass =
     color === "green"
       ? "bg-[#26B743]/10 text-[#26B743] border-[#26B743]/20"
       : color === "red"
       ? "bg-red-50 text-red-500 border-red-100"
-      : color === "blue"
-      ? "bg-blue-50 text-blue-600 border-blue-200"
       : "bg-gray-100 text-gray-600 border-gray-200";
   return (
     <div className={`flex items-center gap-2 border px-3 py-1.5 text-sm ${colorClass}`}>

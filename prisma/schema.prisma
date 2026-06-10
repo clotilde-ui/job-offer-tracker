@@ -146,6 +146,9 @@ model JobOffer {
   lgmReplyContent          String?
   lgmEvents                String?   @default("[]")
 
+  // Cabinet de recrutement
+  recruitingAgency    Boolean   @default(false)
+
   // Appel demandé (depuis Google Sheets / externe)
   callRequested       Boolean   @default(false)
 

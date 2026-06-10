@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { retryAfterEnsuringRecruitingAgencyColumn } from "@/lib/job-offer-schema";
 import { resolveWorkspaceId } from "@/lib/workspace-access";
 
 export async function GET(req: NextRequest) {
@@ -47,10 +48,12 @@ export async function GET(req: NextRequest) {
   }
 
   if (searchParams.get("format") === "csv") {
-    const [allOffers, customFieldDefs] = await Promise.all([
-      prisma.jobOffer.findMany({ where, orderBy: { [sortBy]: sortDir } }),
-      prisma.customFieldDef.findMany({ where: { workspaceId }, orderBy: { order: "asc" } }),
-    ]);
+    const [allOffers, customFieldDefs] = await retryAfterEnsuringRecruitingAgencyColumn(() =>
+      Promise.all([
+        prisma.jobOffer.findMany({ where, orderBy: { [sortBy]: sortDir } }),
+        prisma.customFieldDef.findMany({ where: { workspaceId }, orderBy: { order: "asc" } }),
+      ])
+    );
 
     const fixedHeaders = [
       "Offre d'emploi", "Entreprise", "Localisation", "Source", "Date offre", "Lead", "Email lead", "Métier lead", "LinkedIn lead",
@@ -104,13 +107,15 @@ export async function GET(req: NextRequest) {
   const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 50;
 
-  const [rawData, total, statsAll, statsToContact, statsDNC] = await Promise.all([
-    prisma.jobOffer.findMany({ where, orderBy: { [sortBy]: sortDir }, skip: (page - 1) * limit, take: limit }),
-    prisma.jobOffer.count({ where }),
-    prisma.jobOffer.count({ where: { workspaceId } }),
-    prisma.jobOffer.count({ where: { workspaceId, toContact: true } }),
-    prisma.jobOffer.count({ where: { workspaceId, doNotContact: true } }),
-  ]);
+  const [rawData, total, statsAll, statsToContact, statsDNC] = await retryAfterEnsuringRecruitingAgencyColumn(() =>
+    Promise.all([
+      prisma.jobOffer.findMany({ where, orderBy: { [sortBy]: sortDir }, skip: (page - 1) * limit, take: limit }),
+      prisma.jobOffer.count({ where }),
+      prisma.jobOffer.count({ where: { workspaceId } }),
+      prisma.jobOffer.count({ where: { workspaceId, toContact: true } }),
+      prisma.jobOffer.count({ where: { workspaceId, doNotContact: true } }),
+    ])
+  );
 
   const data = rawData.map((offer) => {
     let customValues: Record<string, unknown> = {};

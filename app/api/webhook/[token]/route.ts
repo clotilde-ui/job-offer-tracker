@@ -60,6 +60,11 @@ function normalizeCivility(value: unknown): string | null {
   return null;
 }
 
+function isRecruitingAgencySearch(value: unknown): boolean {
+  const searchName = sanitizeString(value, 500);
+  return searchName?.toLocaleLowerCase("fr-FR").includes("reverse") ?? false;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -100,9 +105,13 @@ export async function POST(
     ? body
     : [body];
 
+  const defaultRecruitingAgency = isRecruitingAgencySearch(body.search_name);
+
   const created = await Promise.all(
     leads.map(async (lead: Record<string, unknown>) => {
       const leadLinkedin = sanitizeUrl(lead.lead_linkedin);
+      const recruitingAgency =
+        "search_name" in lead ? isRecruitingAgencySearch(lead.search_name) : defaultRecruitingAgency;
 
       let duplicateWarning: string | null = null;
       if (leadLinkedin) {
@@ -145,6 +154,7 @@ export async function POST(
           leadJobTitle: sanitizeString(lead.lead_job_title, 200),
           leadLinkedin,
           leadPhone: sanitizeString(lead.lead_phones, 50),
+          recruitingAgency,
           duplicateWarning,
         },
       });

@@ -37,6 +37,7 @@ interface JobOffer {
   leadLinkedin: string | null;
   leadPhone: string | null;
   toContact: boolean;
+  recruitingAgency: boolean;
   doNotContact: boolean;
   contactedAt: string | null;
   lgmSent: boolean;
@@ -72,6 +73,7 @@ interface OffersTableProps {
 
 const FIXED_COLUMNS = [
   { key: "toContact", label: "CONTACTER", defaultWidth: 160 },
+  { key: "recruitingAgency", label: "Cabinet recrutement", defaultWidth: 150 },
   { key: "title", label: "Offre d'emploi", defaultWidth: 220 },
   { key: "url", label: "URL de l'offre", defaultWidth: 130 },
   { key: "description", label: "Description", defaultWidth: 250 },
@@ -386,6 +388,15 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
         );
       });
     }
+  }
+
+  async function updateRecruitingAgency(offerId: string, value: boolean) {
+    setOffers((prev) => prev.map((o) => o.id === offerId ? { ...o, recruitingAgency: value } : o));
+    await fetch(`/api/job-offers/${offerId}/boolean-field`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ field: "recruitingAgency", value }),
+    });
   }
 
   async function deleteCustomField(fieldId: string) {
@@ -787,6 +798,21 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
                           offer={offer}
                           campaigns={campaigns}
                           onSet={setContactStatus}
+                        />
+                      </td>
+                    )}
+
+                    {/* recruitingAgency */}
+                    {!hiddenColumns.has("recruitingAgency") && (
+                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={offer.recruitingAgency}
+                          onChange={(e) => {
+                            void updateRecruitingAgency(offer.id, e.target.checked);
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                          style={{ accentColor: "#FFBEFA" }}
                         />
                       </td>
                     )}

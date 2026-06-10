@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     if (activeStatuses.includes("qualify")) orClauses.push({ toContact: false, doNotContact: false });
     if (activeStatuses.includes("contact")) orClauses.push({ toContact: true });
     if (activeStatuses.includes("doNotContact")) orClauses.push({ doNotContact: true });
+    if (activeStatuses.includes("callRequested")) orClauses.push({ callRequested: true });
     if (orClauses.length > 0) Object.assign(where, { OR: orClauses });
   }
 
@@ -104,12 +105,13 @@ export async function GET(req: NextRequest) {
   const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 50;
 
-  const [rawData, total, statsAll, statsToContact, statsDNC] = await Promise.all([
+  const [rawData, total, statsAll, statsToContact, statsDNC, statsCallRequested] = await Promise.all([
     prisma.jobOffer.findMany({ where, orderBy: { [sortBy]: sortDir }, skip: (page - 1) * limit, take: limit }),
     prisma.jobOffer.count({ where }),
     prisma.jobOffer.count({ where: { workspaceId } }),
     prisma.jobOffer.count({ where: { workspaceId, toContact: true } }),
     prisma.jobOffer.count({ where: { workspaceId, doNotContact: true } }),
+    prisma.jobOffer.count({ where: { workspaceId, callRequested: true } }),
   ]);
 
   const data = rawData.map((offer) => {
@@ -128,6 +130,7 @@ export async function GET(req: NextRequest) {
       toContact: statsToContact,
       doNotContact: statsDNC,
       qualify: statsAll - statsToContact - statsDNC,
+      callRequested: statsCallRequested,
     },
   });
 }

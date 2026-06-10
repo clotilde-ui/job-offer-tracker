@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "@/lib/cn";
 import { AddCustomFieldModal } from "@/components/forms/add-custom-field-modal";
 import { EditCustomFieldPromptModal } from "@/components/forms/edit-custom-field-prompt-modal";
+import { ImportCsvModal } from "@/components/forms/import-csv-modal";
 
 interface CustomField {
   id: string;
@@ -157,6 +158,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const [loading, setLoading] = useState(true);
   const [customFields, setCustomFields] = useState<CustomField[]>(initialCustomFields);
   const [showAddField, setShowAddField] = useState(false);
+  const [showImportCsv, setShowImportCsv] = useState(false);
   const [editingPromptField, setEditingPromptField] = useState<CustomField | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState<Set<string>>(new Set());
@@ -405,6 +407,13 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
     if (res.ok) setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
   }
 
+  async function handleCsvImported(count: number) {
+    setShowImportCsv(false);
+    setPage(1);
+    await fetchOffers({ silent: true });
+    alert(`${count} ligne${count > 1 ? "s" : ""} importée${count > 1 ? "s" : ""}.`);
+  }
+
   async function syncLgmStats() {
     setSyncingLgm(true);
     try {
@@ -633,6 +642,14 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
               </div>
             )}
           </div>
+
+          <button
+            onClick={() => setShowImportCsv(true)}
+            className="text-sm border border-gray-300 px-3 py-2 hover:bg-white text-brand-dark flex items-center gap-1 transition-colors"
+            title="Importer des offres depuis un fichier CSV"
+          >
+            ↑ Import CSV
+          </button>
 
           <button
             onClick={() => setShowAddField(true)}
@@ -1294,6 +1311,15 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
             Suivant →
           </button>
         </div>
+      )}
+
+      {showImportCsv && (
+        <ImportCsvModal
+          workspaceId={targetWorkspaceId}
+          customFields={customFields}
+          onClose={() => setShowImportCsv(false)}
+          onImported={(count) => { void handleCsvImported(count); }}
+        />
       )}
 
       {showAddField && (

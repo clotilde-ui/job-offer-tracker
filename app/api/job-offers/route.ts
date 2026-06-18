@@ -56,8 +56,14 @@ export async function GET(req: NextRequest) {
     );
 
     const fixedHeaders = [
-      "Offre d'emploi", "Entreprise", "Localisation", "Source", "Date offre", "Lead", "Email lead", "Métier lead", "LinkedIn lead",
-      "Chercher numéro", "Numéro de téléphone", "Statut contact", "Audience LGM", "LGM envoyé",
+      "Statut contact", "Cabinet recrutement", "Offre d'emploi", "URL de l'offre", "Description",
+      "Entreprise", "LinkedIn entreprise", "Site web", "Tél. entreprise", "Siège social",
+      "Localisation", "Source", "Date offre", "Date réception",
+      "Lead", "Civilité", "Prénom lead", "Nom lead", "Email lead", "Métier lead", "LinkedIn lead", "Tél. lead",
+      "Chercher numéro", "Numéro de téléphone", "Statut enrichissement téléphone",
+      "Envoi dans LGM", "Date envoi LGM", "Audience LGM", "Appeler",
+      "Messages envoyés", "Ouvertures email",
+      "Connexion envoyée", "Connexion acceptée", "Message 1 envoyé", "Réponse reçue", "Contenu réponse",
     ];
     const headers = [...fixedHeaders, ...customFieldDefs.map((f) => f.label)];
 
@@ -67,26 +73,52 @@ export async function GET(req: NextRequest) {
       return s.includes('"') || s.includes(",") || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
     }
 
+    function fmtDate(d: Date | null | undefined): string {
+      return d ? new Date(d).toLocaleDateString("fr-FR") : "";
+    }
+
     const rows = allOffers.map((offer) => {
       let customValues: Record<string, unknown> = {};
       try { customValues = JSON.parse(offer.customValues ?? "{}"); } catch {}
 
       const contactStatus = offer.doNotContact ? "Ne pas contacter" : offer.toContact ? "Contacté" : "À qualifier";
       const fixed = [
+        contactStatus,
+        offer.recruitingAgency ? "Oui" : "Non",
         offer.title,
+        offer.url ?? "",
+        offer.description ?? "",
         offer.company,
+        offer.linkedinPage ?? "",
+        offer.website ?? "",
+        offer.phone ?? "",
+        offer.headquarters ?? "",
         offer.offerLocation ?? "",
         offer.source ?? "",
-        offer.publishedAt ? new Date(offer.publishedAt).toLocaleDateString("fr-FR") : "",
+        fmtDate(offer.publishedAt),
+        fmtDate(offer.receivedAt),
         [offer.leadCivility, offer.leadFirstName, offer.leadLastName].filter(Boolean).join(" "),
+        offer.leadCivility ?? "",
+        offer.leadFirstName ?? "",
+        offer.leadLastName ?? "",
         offer.leadEmail ?? "",
         offer.leadJobTitle ?? "",
         offer.leadLinkedin ?? "",
+        offer.leadPhone ?? "",
         offer.phoneLookupRequested ? "Oui" : "Non",
         offer.enrichedPhone ?? "",
-        contactStatus,
+        offer.apolloEnrichmentStatus ?? "",
+        offer.lgmSent ? "Oui" : "Non",
+        fmtDate(offer.lgmSentAt),
         offer.lgmAudience ?? "",
-        offer.lgmSentAt ? new Date(offer.lgmSentAt).toLocaleDateString("fr-FR") : "",
+        offer.callRequested ? "Oui" : "Non",
+        offer.lgmMessagesSent ?? "",
+        offer.lgmEmailOpened ?? "",
+        fmtDate(offer.lgmConnectionSentAt),
+        fmtDate(offer.lgmConnectionAcceptedAt),
+        fmtDate(offer.lgmMessage1SentAt),
+        fmtDate(offer.lgmRepliedAt),
+        offer.lgmReplyContent ?? "",
       ];
 
       const custom = customFieldDefs.map((f) => customValues[f.name] ?? "");

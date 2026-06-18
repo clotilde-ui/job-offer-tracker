@@ -434,10 +434,16 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   }
 
   function handleExportCsv() {
+    // N'exporter que les colonnes visibles, dans le même ordre que le tableau.
+    const visibleColumnKeys = [
+      ...FIXED_COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map((c) => c.key),
+      ...customFields.filter((f) => !hiddenColumns.has(f.id)).map((f) => f.id),
+    ];
     const params = new URLSearchParams({
       format: "csv",
       sortBy,
       sortDir,
+      columns: visibleColumnKeys.join(","),
       ...(search ? { search } : {}),
       ...(filterStatuses.size > 0 ? { filterStatus: [...filterStatuses].join(",") } : {}),
       ...(targetWorkspaceId ? { targetWorkspaceId } : {}),

@@ -55,18 +55,6 @@ export async function GET(req: NextRequest) {
       ])
     );
 
-    const fixedHeaders = [
-      "Statut contact", "Cabinet recrutement", "Offre d'emploi", "URL de l'offre", "Description",
-      "Entreprise", "LinkedIn entreprise", "Site web", "Tél. entreprise", "Siège social",
-      "Localisation", "Source", "Date offre", "Date réception",
-      "Lead", "Civilité", "Prénom lead", "Nom lead", "Email lead", "Métier lead", "LinkedIn lead", "Tél. lead",
-      "Chercher numéro", "Numéro de téléphone", "Statut enrichissement téléphone",
-      "Envoi dans LGM", "Date envoi LGM", "Audience LGM", "Appeler",
-      "Messages envoyés", "Ouvertures email",
-      "Connexion envoyée", "Connexion acceptée", "Message 1 envoyé", "Réponse reçue", "Contenu réponse",
-    ];
-    const headers = [...fixedHeaders, ...customFieldDefs.map((f) => f.label)];
-
     function escapeCsv(val: unknown): string {
       if (val == null) return "";
       const s = String(val);
@@ -77,51 +65,58 @@ export async function GET(req: NextRequest) {
       return d ? new Date(d).toLocaleDateString("fr-FR") : "";
     }
 
+    // Colonnes fixes, dans le même ordre et avec les mêmes clés que le tableau.
+    const fixedColumns: { key: string; label: string; value: (offer: typeof allOffers[number]) => unknown }[] = [
+      { key: "toContact", label: "Statut contact", value: (o) => (o.doNotContact ? "Ne pas contacter" : o.toContact ? "Contacté" : "À qualifier") },
+      { key: "recruitingAgency", label: "Cabinet recrutement", value: (o) => (o.recruitingAgency ? "Oui" : "Non") },
+      { key: "title", label: "Offre d'emploi", value: (o) => o.title },
+      { key: "url", label: "URL de l'offre", value: (o) => o.url ?? "" },
+      { key: "description", label: "Description", value: (o) => o.description ?? "" },
+      { key: "company", label: "Entreprise", value: (o) => o.company },
+      { key: "linkedinPage", label: "LinkedIn entreprise", value: (o) => o.linkedinPage ?? "" },
+      { key: "website", label: "Site web", value: (o) => o.website ?? "" },
+      { key: "phone", label: "Tél. entreprise", value: (o) => o.phone ?? "" },
+      { key: "headquarters", label: "Siège social", value: (o) => o.headquarters ?? "" },
+      { key: "offerLocation", label: "Localisation", value: (o) => o.offerLocation ?? "" },
+      { key: "source", label: "Source", value: (o) => o.source ?? "" },
+      { key: "publishedAt", label: "Date offre", value: (o) => fmtDate(o.publishedAt) },
+      { key: "receivedAt", label: "Date réception", value: (o) => fmtDate(o.receivedAt) },
+      { key: "leadName", label: "Lead", value: (o) => [o.leadCivility, o.leadFirstName, o.leadLastName].filter(Boolean).join(" ") },
+      { key: "leadCivility", label: "Civilité", value: (o) => o.leadCivility ?? "" },
+      { key: "leadFirstName", label: "Prénom lead", value: (o) => o.leadFirstName ?? "" },
+      { key: "leadLastName", label: "Nom lead", value: (o) => o.leadLastName ?? "" },
+      { key: "leadEmail", label: "Email lead", value: (o) => o.leadEmail ?? "" },
+      { key: "leadJobTitle", label: "Métier lead", value: (o) => o.leadJobTitle ?? "" },
+      { key: "leadLinkedin", label: "LinkedIn lead", value: (o) => o.leadLinkedin ?? "" },
+      { key: "leadPhone", label: "Tél. lead", value: (o) => o.leadPhone ?? "" },
+      { key: "phoneLookupRequested", label: "Chercher tél.", value: (o) => (o.phoneLookupRequested ? "Oui" : "Non") },
+      { key: "enrichedPhone", label: "Numéro de téléphone", value: (o) => o.enrichedPhone ?? "" },
+      { key: "lgmSent", label: "Envoi dans LGM", value: (o) => (o.lgmSent ? "Oui" : "Non") },
+      { key: "callRequested", label: "Appeler", value: (o) => (o.callRequested ? "Oui" : "Non") },
+      { key: "lgmMessagesSent", label: "Messages envoyés", value: (o) => o.lgmMessagesSent ?? "" },
+      { key: "lgmEmailOpened", label: "Ouvertures email", value: (o) => o.lgmEmailOpened ?? "" },
+      { key: "lgmConnectionSentAt", label: "Connexion envoyée", value: (o) => fmtDate(o.lgmConnectionSentAt) },
+      { key: "lgmConnectionAcceptedAt", label: "Connexion acceptée", value: (o) => fmtDate(o.lgmConnectionAcceptedAt) },
+      { key: "lgmMessage1SentAt", label: "Message 1 envoyé", value: (o) => fmtDate(o.lgmMessage1SentAt) },
+      { key: "lgmRepliedAt", label: "Réponse reçue", value: (o) => fmtDate(o.lgmRepliedAt) },
+      { key: "lgmReplyContent", label: "Contenu réponse", value: (o) => o.lgmReplyContent ?? "" },
+    ];
+
+    // Si le client fournit la liste des colonnes visibles, on n'exporte que celles-ci.
+    const columnsParam = searchParams.get("columns");
+    const visibleKeys = columnsParam ? new Set(columnsParam.split(",").filter(Boolean)) : null;
+
+    const exportFixed = visibleKeys ? fixedColumns.filter((c) => visibleKeys.has(c.key)) : fixedColumns;
+    const exportCustom = visibleKeys ? customFieldDefs.filter((f) => visibleKeys.has(f.id)) : customFieldDefs;
+
+    const headers = [...exportFixed.map((c) => c.label), ...exportCustom.map((f) => f.label)];
+
     const rows = allOffers.map((offer) => {
       let customValues: Record<string, unknown> = {};
       try { customValues = JSON.parse(offer.customValues ?? "{}"); } catch {}
 
-      const contactStatus = offer.doNotContact ? "Ne pas contacter" : offer.toContact ? "Contacté" : "À qualifier";
-      const fixed = [
-        contactStatus,
-        offer.recruitingAgency ? "Oui" : "Non",
-        offer.title,
-        offer.url ?? "",
-        offer.description ?? "",
-        offer.company,
-        offer.linkedinPage ?? "",
-        offer.website ?? "",
-        offer.phone ?? "",
-        offer.headquarters ?? "",
-        offer.offerLocation ?? "",
-        offer.source ?? "",
-        fmtDate(offer.publishedAt),
-        fmtDate(offer.receivedAt),
-        [offer.leadCivility, offer.leadFirstName, offer.leadLastName].filter(Boolean).join(" "),
-        offer.leadCivility ?? "",
-        offer.leadFirstName ?? "",
-        offer.leadLastName ?? "",
-        offer.leadEmail ?? "",
-        offer.leadJobTitle ?? "",
-        offer.leadLinkedin ?? "",
-        offer.leadPhone ?? "",
-        offer.phoneLookupRequested ? "Oui" : "Non",
-        offer.enrichedPhone ?? "",
-        offer.apolloEnrichmentStatus ?? "",
-        offer.lgmSent ? "Oui" : "Non",
-        fmtDate(offer.lgmSentAt),
-        offer.lgmAudience ?? "",
-        offer.callRequested ? "Oui" : "Non",
-        offer.lgmMessagesSent ?? "",
-        offer.lgmEmailOpened ?? "",
-        fmtDate(offer.lgmConnectionSentAt),
-        fmtDate(offer.lgmConnectionAcceptedAt),
-        fmtDate(offer.lgmMessage1SentAt),
-        fmtDate(offer.lgmRepliedAt),
-        offer.lgmReplyContent ?? "",
-      ];
-
-      const custom = customFieldDefs.map((f) => customValues[f.name] ?? "");
+      const fixed = exportFixed.map((c) => c.value(offer));
+      const custom = exportCustom.map((f) => customValues[f.name] ?? "");
       return [...fixed, ...custom].map(escapeCsv).join(",");
     });
 

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function normalizeLinkedinUrl(url: string): string {
-  return url.toLowerCase().replace(/\/+$/, "").trim();
-}
+import { normalizeLinkedinUrl } from "@/lib/linkedin";
 
 export async function POST(
   req: NextRequest,

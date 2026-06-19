@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeLinkedinUrl } from "@/lib/linkedin";
 
 type ContactStatus = "qualify" | "contact" | "doNotContact";
 
@@ -322,13 +323,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Cascade duplicateWarning to all offers sharing the same linkedinUrl
   if (offer.leadLinkedin) {
-    const normalized = offer.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+    const normalized = normalizeLinkedinUrl(offer.leadLinkedin);
     const candidates = await prisma.jobOffer.findMany({
       where: { workspaceId: offer.workspaceId, leadLinkedin: { not: null } },
       select: { id: true, leadLinkedin: true, toContact: true, doNotContact: true, contactedAt: true },
     });
     const group = candidates.filter(
-      (o) => o.leadLinkedin && o.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim() === normalized
+      (o) => o.leadLinkedin && normalizeLinkedinUrl(o.leadLinkedin) === normalized
     );
     if (group.length > 1) {
       await Promise.all(

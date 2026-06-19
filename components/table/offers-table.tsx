@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { normalizeLinkedinUrl } from "@/lib/linkedin";
 import { AddCustomFieldModal } from "@/components/forms/add-custom-field-modal";
 import { EditCustomFieldPromptModal } from "@/components/forms/edit-custom-field-prompt-modal";
 import { ImportCsvModal } from "@/components/forms/import-csv-modal";
@@ -510,7 +511,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   const linkedinGroupMap = new Map<string, JobOffer[]>();
   for (const o of offers) {
     if (o.leadLinkedin) {
-      const key = o.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+      const key = normalizeLinkedinUrl(o.leadLinkedin);
       const group = linkedinGroupMap.get(key) ?? [];
       group.push(o);
       linkedinGroupMap.set(key, group);
@@ -518,7 +519,7 @@ export function OffersTable({ customFields: initialCustomFields, targetWorkspace
   }
   function computeDuplicateWarning(offer: JobOffer): string | null {
     if (!offer.leadLinkedin) return null;
-    const key = offer.leadLinkedin.toLowerCase().replace(/\/+$/, "").trim();
+    const key = normalizeLinkedinUrl(offer.leadLinkedin);
     const siblings = (linkedinGroupMap.get(key) ?? []).filter((o) => o.id !== offer.id);
     if (siblings.length === 0) return null;
     if (siblings.some((s) => s.doNotContact)) return "do_not_contact";

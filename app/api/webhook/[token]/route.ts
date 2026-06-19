@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { callAIProvider } from "@/lib/ai-generate";
+import { normalizeLinkedinUrl } from "@/lib/linkedin";
 
 // Simple in-memory rate limiter: max 60 requests per minute per token
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -29,10 +30,6 @@ function sanitizeUrl(value: unknown): string | null {
   } catch {
     return null;
   }
-}
-
-function normalizeLinkedinUrl(url: string): string {
-  return url.toLowerCase().replace(/\/+$/, "").trim();
 }
 
 function sanitizeString(value: unknown, maxLength = 1000): string | null {

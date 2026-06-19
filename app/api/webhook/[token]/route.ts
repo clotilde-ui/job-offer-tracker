@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { callAIProvider } from "@/lib/ai-generate";
 import { normalizeLinkedinUrl } from "@/lib/linkedin";
@@ -158,36 +158,49 @@ export async function POST(
     })
   );
 
-  // Répondre immédiatement — auto-fill IA en arrière-plan
-  const response = NextResponse.json({ received: created.length }, { status: 201 });
-
-  // Auto-fill asynchrone : ne bloque pas la réponse
+  // Auto-fill IA : exécuté APRÈS la réponse via after() pour ne pas bloquer le
+  // webhook, tout en garantissant que la plateforme ne tue pas le traitement
+  // (contrairement à un fire-and-forget classique).
   const autoFillFields = await prisma.customFieldDef.findMany({
     where: { workspaceId: workspace.id, type: "AI", autoFill: true },
   });
 
   if (autoFillFields.length > 0) {
-    Promise.allSettled(
-      created.flatMap((offer) =>
-        autoFillFields.map(async (field) => {
-          if (!field.formula) return;
-          try {
-            const value = await callAIProvider(workspace, field.formula, offer);
-            const customValues = JSON.parse(offer.customValues || "{}");
-            customValues[field.name] = value;
-            await prisma.jobOffer.update({
-              where: { id: offer.id },
-              data: { customValues: JSON.stringify(customValues) },
-            });
-          } catch (e) {
-            console.error(`Auto-fill IA [${field.name}] offre ${offer.id}:`, e);
-          }
-        })
-      )
-    ).catch(() => {});
+    after(async () => {
+      // Concurrence bornée pour ne pas saturer le fournisseur IA (rate-limits)
+      // sur les gros imports.
+      const CONCURRENCY = 5;
+      for (let i = 0; i < created.length; i += CONCURRENCY) {
+        const batch = created.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(
+          batch.map(async (offer) => {
+            // Une seule lecture/écriture de customValues par offre : on remplit
+            // les champs séquentiellement pour éviter d'écraser les autres.
+            let customValues: Record<string, unknown> = {};
+            try { customValues = JSON.parse(offer.customValues || "{}"); } catch {}
+            let changed = false;
+            for (const field of autoFillFields) {
+              if (!field.formula) continue;
+              try {
+                customValues[field.name] = await callAIProvider(workspace, field.formula, offer);
+                changed = true;
+              } catch (e) {
+                console.error(`Auto-fill IA [${field.name}] offre ${offer.id}:`, e);
+              }
+            }
+            if (changed) {
+              await prisma.jobOffer.update({
+                where: { id: offer.id },
+                data: { customValues: JSON.stringify(customValues) },
+              });
+            }
+          })
+        );
+      }
+    });
   }
 
-  return response;
+  return NextResponse.json({ received: created.length }, { status: 201 });
 }
 
 // Endpoint GET pour vérifier que le webhook est actif

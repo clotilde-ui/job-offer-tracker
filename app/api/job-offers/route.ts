@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { retryAfterEnsuringRecruitingAgencyColumn } from "@/lib/job-offer-schema";
 import { resolveWorkspaceId } from "@/lib/workspace-access";
+import { normalizeLinkedinUrl } from "@/lib/linkedin";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -134,20 +135,44 @@ export async function GET(req: NextRequest) {
   const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 50;
 
-  const [rawData, total, statsAll, statsToContact, statsDNC] = await retryAfterEnsuringRecruitingAgencyColumn(() =>
+  const [rawData, total, statsAll, statsToContact, statsDNC, linkedinOffers] = await retryAfterEnsuringRecruitingAgencyColumn(() =>
     Promise.all([
       prisma.jobOffer.findMany({ where, orderBy: { [sortBy]: sortDir }, skip: (page - 1) * limit, take: limit }),
       prisma.jobOffer.count({ where }),
       prisma.jobOffer.count({ where: { workspaceId } }),
       prisma.jobOffer.count({ where: { workspaceId, toContact: true } }),
       prisma.jobOffer.count({ where: { workspaceId, doNotContact: true } }),
+      // Toutes les offres du workspace ayant un LinkedIn, pour détecter les doublons
+      // au-delà de la page courante (la détection front ne voyait que la page chargée).
+      prisma.jobOffer.findMany({
+        where: { workspaceId, leadLinkedin: { not: null } },
+        select: { id: true, leadLinkedin: true, toContact: true, doNotContact: true, contactedAt: true },
+      }),
     ])
   );
+
+  // Regroupe les offres par URL LinkedIn normalisée (même profil = même clé).
+  const linkedinGroups = new Map<string, typeof linkedinOffers>();
+  for (const o of linkedinOffers) {
+    if (!o.leadLinkedin) continue;
+    const key = normalizeLinkedinUrl(o.leadLinkedin);
+    const group = linkedinGroups.get(key) ?? [];
+    group.push(o);
+    linkedinGroups.set(key, group);
+  }
+  function computeDuplicateWarning(offerId: string, leadLinkedin: string | null): string | null {
+    if (!leadLinkedin) return null;
+    const siblings = (linkedinGroups.get(normalizeLinkedinUrl(leadLinkedin)) ?? []).filter((s) => s.id !== offerId);
+    if (siblings.length === 0) return null;
+    if (siblings.some((s) => s.doNotContact)) return "do_not_contact";
+    if (siblings.some((s) => s.toContact || s.contactedAt)) return "contacted";
+    return "imported";
+  }
 
   const data = rawData.map((offer) => {
     let customValues: Record<string, unknown> = {};
     try { customValues = JSON.parse(offer.customValues ?? "{}"); } catch {}
-    return { ...offer, customValues };
+    return { ...offer, customValues, duplicateWarning: computeDuplicateWarning(offer.id, offer.leadLinkedin) };
   });
 
   return NextResponse.json({
